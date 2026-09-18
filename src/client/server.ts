@@ -26,6 +26,8 @@ export interface ClientServerOptions {
   /** URL of the running MCP Streamable HTTP server. */
   mcpUrl: string;
   bearerToken?: string;
+  /** Per-substrate backing ("real" | "fake") for truthful live-vs-simulated labels. */
+  backing?: Record<string, "real" | "fake">;
 }
 
 export interface RunningClientServer {
@@ -65,6 +67,12 @@ export async function startClientServer(
       if (url.pathname === "/api/manifest") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify(CAPABILITY_MANIFEST));
+        return;
+      }
+
+      if (url.pathname === "/api/backing") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(opts.backing ?? {}));
         return;
       }
 

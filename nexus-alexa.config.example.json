@@ -1,0 +1,10 @@
+{
+  "_comment": "Bring Nexus substrates online here. Substrates listed in `real` are served by a live Nexus MCP server (launched via `nexus`); everything else is simulated and clearly labeled. Copy to nexus-alexa.config.json and set NEXUS_ALEXA_CONFIG or pass --config.",
+  "real": ["firefox"],
+  "nexus": {
+    "command": "nexus",
+    "args": ["serve", "--graph", "./my-crawl"],
+    "env": {}
+  },
+  "simulated": ["chrome", "windows", "macos", "android", "ios"]
+}

@@ -163,6 +163,13 @@
         $("mic").disabled = true; $("mic").title = "Voice not supported in this browser";
       }
 
+      let BACKING = {};
+      fetch("/api/backing").then((r) => r.json()).then((b) => { BACKING = b || {}; });
+      function backingLabel(sub) {
+        const b = BACKING[sub];
+        return b === "real" ? "live" : b === "fake" ? "simulated" : "";
+      }
+
       const flowState = {};
       function renderFlow(substrates) {
         const flow = $("flow"); flow.innerHTML = "";
@@ -187,9 +194,13 @@
       const stepEls = {};
       function addStep(step, index, total) {
         const wrap = document.createElement("div"); wrap.className = "step"; wrap.id = "step-" + step.id;
+        const bl = backingLabel(step.substrate);
+        const blHtml = bl
+          ? '<span class="muted" style="margin-left:6px;font-size:10px">· ' + bl + "</span>"
+          : "";
         wrap.innerHTML =
           '<div class="mark" id="mark-' + step.id + '">…</div>' +
-          '<span class="badge ' + step.substrate + '">' + (SUB_LABEL[step.substrate] || step.substrate) + '</span>' +
+          '<span class="badge ' + step.substrate + '">' + (SUB_LABEL[step.substrate] || step.substrate) + blHtml + '</span>' +
           '<div class="body"><div>' + step.say + '</div><div class="state" id="state-' + step.id + '"></div></div>';
         $("steps").appendChild(wrap);
         stepEls[step.id] = wrap;

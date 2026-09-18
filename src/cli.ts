@@ -14,11 +14,12 @@
  */
 
 import { startHttpServer } from "./mcp/http.js";
-import { FakeNexusSubstrate } from "./nexus/substrate.js";
 import { ScenarioPlanBuilder } from "./plan.js";
 import { Orchestrator, directToolCaller } from "./orchestrator.js";
 import { CAPABILITY_MANIFEST } from "./nexus/manifest.js";
 import { startClientServer } from "./client/server.js";
+import { buildSubstrate, loadConfig } from "./nexus/build.js";
+import { rehearse } from "./rehearse.js";
 
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(`--${name}`);
@@ -36,25 +37,40 @@ async function main() {
     const port = Number(flag(argv, "port") ?? 8391);
     const host = flag(argv, "host") ?? "127.0.0.1";
     const token = flag(argv, "token");
-    const substrate = new FakeNexusSubstrate({ ready: "all" });
-    const running = await startHttpServer({ substrate, port, host, bearerToken: token });
+    const built = buildSubstrate(loadConfig(flag(argv, "config")));
+    const running = await startHttpServer({
+      substrate: built.substrate,
+      port,
+      host,
+      bearerToken: token,
+    });
     // eslint-disable-next-line no-console
     console.error(`[nexus-alexa] MCP Streamable HTTP (2025-11-25) at ${running.url}`);
+    for (const s of await built.composite.availableSubstrates()) {
+      console.error(`[nexus-alexa]   ${s}: ${built.composite.backingOf(s)}`);
+    }
     if (token) console.error(`[nexus-alexa] bearer auth required`);
 
     if (has(argv, "client")) {
       const clientPort = Number(flag(argv, "client-port") ?? port + 1);
+      const backing: Record<string, "real" | "fake"> = {};
+      for (const s of await built.composite.availableSubstrates()) {
+        const b = built.composite.backingOf(s);
+        if (b) backing[s] = b;
+      }
       const cs = await startClientServer({
         port: clientPort,
         host,
         mcpUrl: running.url,
         bearerToken: token,
+        backing,
       });
       console.error(`[nexus-alexa] Alexa+ simulator at ${cs.url}`);
     }
 
     const shutdown = async () => {
       await running.close();
+      for (const c of built.closables) await c.close().catch(() => undefined);
       process.exit(0);
     };
     process.on("SIGINT", shutdown);
@@ -70,8 +86,8 @@ async function main() {
       console.error(`[nexus-alexa] no plan for objective: "${objective}"`);
       process.exit(2);
     }
-    const substrate = new FakeNexusSubstrate({ ready: "all" });
-    const orch = new Orchestrator(directToolCaller(substrate));
+    const built = buildSubstrate(loadConfig(flag(argv, "config")));
+    const orch = new Orchestrator(directToolCaller(built.substrate));
     const grant = has(argv, "confirm");
     const result = await orch.run(plan, {
       confirm: async () => grant,
@@ -112,7 +128,24 @@ async function main() {
       },
     });
     if (has(argv, "json")) console.log(JSON.stringify(result, null, 2));
+    for (const c of built.closables) await c.close().catch(() => undefined);
     process.exit(result.ok ? 0 : 1);
+  }
+
+  if (cmd === "rehearse") {
+    const runs = Number(flag(argv, "runs") ?? 5);
+    const required = Number(flag(argv, "required") ?? 5);
+    const objective = argv[1] && !argv[1].startsWith("--") ? argv[1] : undefined;
+    const report = await rehearse({ objective, runs, required });
+    for (const r of report.runs) {
+      console.log(
+        `  run ${r.index}: ${r.ok ? "PASS" : "FAIL"}  ${r.stepsPassed}/${r.stepsTotal} steps  ${r.ms}ms  ${r.confirmSeen ? "confirm✓" : ""}`,
+      );
+    }
+    console.log(
+      `\n${report.ready ? "✅ READY" : "❌ NOT READY"}: ${report.cleanRuns}/${report.required} clean runs required\n`,
+    );
+    process.exit(report.ready ? 0 : 1);
   }
 
   if (cmd === "capabilities") {
@@ -143,6 +176,7 @@ async function main() {
       "",
       "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N]",
       "  demo \"<objective>\" [--confirm] [--json]",
+      "  rehearse [\"<objective>\"] [--runs 5] [--required 5]",
       "  capabilities [--json]",
     ].join("\n"),
   );
