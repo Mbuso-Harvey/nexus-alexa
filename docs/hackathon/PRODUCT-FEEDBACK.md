@@ -1,0 +1,113 @@
+# Product Feedback — Amazon Alexa+ Hackathon 2026
+
+Required submission content: for each developer tool / API / SDK used, what it was for, what
+worked, what needs work, the onboarding experience, and whether we'd use it again. Written from
+real usage during this build; updated as the project evolves.
+
+---
+
+## 1. Model Context Protocol TypeScript SDK (`@modelcontextprotocol/sdk` 1.30.0)
+
+**Used for:** The MCP server + the required 2025-11-25 Streamable HTTP transport
+(`StreamableHTTPServerTransport`), and as the MCP client both in the Alexa simulator and in
+tests (`Client`, `StreamableHTTPClientTransport`, `StdioClientTransport`).
+
+**What worked well:**
+- `StreamableHTTPServerTransport` implements the 2025-11-25 spec out of the box — POST/GET on a
+  single endpoint, SSE streaming, session IDs, and DNS-rebinding protection via
+  `enableDnsRebindingProtection` + `allowedOrigins`/`allowedHosts`. It returns HTTP 403 on an
+  invalid Origin/Host exactly as the spec requires.
+- `LATEST_PROTOCOL_VERSION` is already `2025-11-25`, so protocol negotiation needed no custom
+  code — the required version is the default.
+- `registerTool(name, { title, description, inputSchema }, handler)` with zod schemas is clean
+  and the client/server handshake "just works" across stdio and Streamable HTTP with the same
+  tool registrations.
+
+**What needs work:**
+- Discoverability of the Streamable HTTP support: `npm view … exports` did not surface a
+  `streamableHttp` subpath clearly; we confirmed it by inspecting the installed
+  `dist/esm/server/streamableHttp.js`. A prominent "Streamable HTTP server in 20 lines" doc entry
+  keyed to the 2025-11-25 spec would save time.
+- Header/behaviour details (e.g. Host validation running ahead of Origin, and 400 vs 403 cases)
+  are only discoverable by reading the transport source. A short conformance table would help.
+
+**Onboarding (zero → hello world):** Fast. From `npm install` to a passing
+`initialize → tools/list → tools/call` conformance test was well under an hour, most of which
+was writing tests, not fighting the SDK.
+
+**Would use again:** **Yes.** It made the hardest hackathon requirement (a spec-compliant
+2025-11-25 Streamable HTTP MCP server) largely a configuration exercise rather than a protocol
+implementation.
+
+---
+
+## 2. NexusOS Semantic (the substrate under test)
+
+**Used for:** The semantic + kinetic capability surface Alexa reaches through MCP — query, read,
+capability discovery, tier-gated invoke, and verification across Web/Desktop/Mobile. Integrated
+via a stable `NexusSubstrate` contract and a `RealNexusSubstrate` adapter that speaks to a running
+Nexus MCP server.
+
+**What worked well:**
+- The `AxTreeNode` semantic model and the `graph_query/graph_tool/graph_invoke/graph_explain`
+  surface map cleanly onto an Alexa "find it → do it → verify it" flow.
+- The `DISCOVER/READ/PROPOSE/EXECUTE/CONFIRM` tier model is exactly the safety primitive a voice
+  agent needs; we mirror it 1:1 and enforce it at the gateway.
+
+**What needs work:**
+- The MCP server spoke only stdio + a private TCP JSON-RPC socket; no Streamable HTTP (this
+  project adds it).
+- Native desktop/mobile kinetic tools weren't routed through the tier gate; we route all
+  invocations through the gate at the gateway to close that gap.
+
+**Would use again:** **Yes** — it's the differentiator. Nexus is what lets Alexa operate apps
+that never built an Alexa integration.
+
+---
+
+## 3. Node.js built-in HTTP (`node:http`) + Node 24 runtime
+
+**Used for:** Hosting the MCP endpoint and the simulator/SSE server.
+
+**What worked well:** Native `fetch`, stable `node:http`, and SSE with zero extra dependencies
+keeps the footprint tiny and the repo easy for a judge to run.
+
+**Would use again:** **Yes.**
+
+---
+
+## 4. Web Speech API (browser) — voice in/out for the simulator
+
+**Used for:** Spoken request capture (`SpeechRecognition`) and Alexa's spoken responses
+(`speechSynthesis`) in the simulated client.
+
+**What worked well:** No install; good enough for a reliable on-camera demo.
+
+**What needs work:** `SpeechRecognition` support is browser-specific; we feature-detect and
+disable the mic gracefully where unavailable (typed input still works).
+
+**Would use again:** **Yes**, for a simulation layer. For production Alexa+ the real ASR/TTS is
+Alexa's own.
+
+---
+
+## 5. Vitest 2.1
+
+**Used for:** All hermetic + E2E tests (transport conformance, orchestration over real Streamable
+HTTP, composite routing, reliability rehearsal).
+
+**What worked well:** Fast, TS-native, minimal config.
+
+**What needs work:** Vite discovered an unrelated `postcss.config.js` from a parent directory and
+failed until we set `css.postcss` explicitly — a footgun when running inside a nested workspace.
+
+**Would use again:** **Yes.**
+
+---
+
+## AWS Builder mini-challenge (in progress)
+
+Development is being done with **Kiro** (Kiro Crew qualifies as a hackathon dev tool on its own).
+If a runtime AWS role is added (e.g. Amazon Bedrock behind the simulator's intent parser via the
+`PlanBuilder` seam), it will be documented here with the specific service and integration point —
+and only added if it has real architectural purpose, since a single trivial call is "obvious."
