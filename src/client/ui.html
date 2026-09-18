@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Alexa+ · Nexus Semantic (simulator)</title>
+    <style>
+      :root {
+        --bg: #05060a;
+        --panel: #0e1018;
+        --panel2: #141826;
+        --edge: #232a3d;
+        --ink: #e7ecf5;
+        --dim: #8a94ab;
+        --accent: #22d3ee;
+        --accent2: #6366f1;
+        --ok: #34d399;
+        --warn: #fbbf24;
+        --bad: #f87171;
+        --live: #34d399;
+        --coming: #64748b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: radial-gradient(1200px 600px at 70% -10%, #10203a 0%, var(--bg) 55%);
+        color: var(--ink); font: 15px/1.5 -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+        min-height: 100vh;
+      }
+      header {
+        display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--edge);
+      }
+      .dot { width: 34px; height: 34px; border-radius: 50%;
+        background: conic-gradient(from 0deg, var(--accent), var(--accent2), var(--accent));
+        box-shadow: 0 0 24px rgba(34,211,238,.5); }
+      header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+      header .tag { color: var(--dim); font-size: 12px; }
+      .sim-badge { margin-left: auto; font-size: 11px; color: var(--warn);
+        border: 1px solid #4a3d13; background: #211a08; padding: 4px 10px; border-radius: 999px; }
+      main { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; padding: 22px 24px; max-width: 1180px; margin: 0 auto; }
+      .card { background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; padding: 18px; }
+      .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--dim); margin: 0 0 12px; }
+      .ask { display: flex; gap: 10px; }
+      input[type=text] { flex: 1; background: var(--panel2); border: 1px solid var(--edge); color: var(--ink);
+        border-radius: 10px; padding: 12px 14px; font-size: 15px; }
+      button { background: linear-gradient(120deg, var(--accent2), var(--accent)); color: #05060a; border: 0;
+        border-radius: 10px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
+      button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--edge); font-weight: 600; }
+      button.mic { padding: 12px 14px; }
+      button:disabled { opacity: .5; cursor: default; }
+      .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .chip { font-size: 12px; color: var(--dim); border: 1px solid var(--edge); border-radius: 999px;
+        padding: 6px 10px; cursor: pointer; background: var(--panel2); }
+      .say { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #0b1220; border: 1px solid var(--edge);
+        min-height: 44px; color: var(--ink); }
+      .say .who { color: var(--accent); font-weight: 700; margin-right: 8px; }
+      .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+      .node { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px;
+        border: 1px solid var(--edge); background: var(--panel2); font-size: 13px; }
+      .node.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .node.done { border-color: var(--ok); }
+      .node.fail { border-color: var(--bad); }
+      .arrow { color: var(--dim); }
+      .steps { margin-top: 8px; }
+      .step { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px dashed var(--edge); }
+      .step:first-child { border-top: 0; }
+      .badge { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; padding: 2px 7px; border-radius: 6px;
+        border: 1px solid var(--edge); color: var(--dim); white-space: nowrap; }
+      .badge.firefox { color: #ff9d5c; } .badge.chrome { color: #7cc4ff; } .badge.windows { color: #7de3ff; }
+      .badge.macos { color: #d7d7de; } .badge.android { color: #a4e565; } .badge.ios { color: #cbb7ff; }
+      .step .body { flex: 1; }
+      .step .state { color: var(--dim); font-size: 12px; margin-top: 3px; word-break: break-word; }
+      .mark { width: 20px; text-align: center; }
+      .confirm { margin-top: 10px; border: 1px solid #4a3d13; background: #1c1707; border-radius: 12px; padding: 14px; }
+      .confirm h3 { margin: 0 0 6px; font-size: 14px; color: var(--warn); }
+      .confirm .row { display: flex; gap: 10px; margin-top: 10px; }
+      .manifest .rowc { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
+      .rd { width: 8px; height: 8px; border-radius: 50%; }
+      .rd.live { background: var(--live); box-shadow: 0 0 8px var(--live); }
+      .rd.coming { background: var(--coming); }
+      .muted { color: var(--dim); font-size: 12px; }
+      footer { text-align: center; color: var(--dim); font-size: 11px; padding: 16px; }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="dot"></div>
+      <div>
+        <h1>Alexa+ · Nexus Semantic</h1>
+        <div class="tag">one request → cross-substrate execution → verified outcome</div>
+      </div>
+      <div class="sim-badge">Alexa+ interface simulated · Nexus execution real</div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Talk to Alexa</h2>
+        <div class="ask">
+          <input id="objective" type="text" placeholder="Alexa, get me set up for the Acme review at 3"
+            value="Alexa, get me set up for the Acme review at 3" />
+          <button class="mic ghost" id="mic" title="Speak">🎙</button>
+          <button id="go">Ask</button>
+        </div>
+        <div class="examples" id="examples"></div>
+
+        <div class="say" id="say"><span class="who">Alexa</span><span id="sayText" class="muted">Ready.</span></div>
+
+        <h2 style="margin-top:18px">Execution</h2>
+        <div class="flow" id="flow"></div>
+        <div class="steps" id="steps"></div>
+        <div id="confirmSlot"></div>
+      </section>
+
+      <section class="card manifest">
+        <h2>Nexus capability reach</h2>
+        <div class="muted" style="margin-bottom:8px">
+          What Alexa can drive through Nexus across your digital world. ● live now · ○ coming online.
+        </div>
+        <div id="manifest"></div>
+      </section>
+    </main>
+
+    <footer>
+      Alexa+ experience is simulated per hackathon rules. All Nexus tool calls run over a real
+      MCP 2025-11-25 Streamable HTTP server.
+    </footer>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const SUB_LABEL = { firefox: "Firefox", chrome: "Chrome", windows: "Windows", macos: "macOS", android: "Android", ios: "iOS" };
+      const examples = [
+        "Alexa, get me set up for the Acme review at 3",
+        "Alexa, switch the app to dark mode and turn on billing alerts",
+      ];
+      const exBox = $("examples");
+      examples.forEach((t) => {
+        const c = document.createElement("span");
+        c.className = "chip"; c.textContent = t;
+        c.onclick = () => { $("objective").value = t; };
+        exBox.appendChild(c);
+      });
+
+      function speak(text) {
+        $("sayText").textContent = text;
+        $("sayText").classList.remove("muted");
+        try {
+          if (window.speechSynthesis) {
+            const u = new SpeechSynthesisUtterance(text);
+            u.rate = 1.03; u.pitch = 1.0;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(u);
+          }
+        } catch (_) {}
+      }
+
+      // Voice input via Web Speech API (graceful fallback if unavailable).
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SR) {
+        const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false;
+        $("mic").onclick = () => { try { rec.start(); } catch (_) {} };
+        rec.onresult = (e) => { $("objective").value = e.results[0][0].transcript; run(); };
+      } else {
+        $("mic").disabled = true; $("mic").title = "Voice not supported in this browser";
+      }
+
+      const flowState = {};
+      function renderFlow(substrates) {
+        const flow = $("flow"); flow.innerHTML = "";
+        const chain = ["Alexa", "Nexus", ...substrates.map((s) => SUB_LABEL[s] || s)];
+        chain.forEach((label, i) => {
+          const n = document.createElement("div");
+          n.className = "node"; n.id = "flow-" + label; n.innerHTML = "<span>" + label + "</span>";
+          flow.appendChild(n);
+          if (i < chain.length - 1) {
+            const a = document.createElement("span"); a.className = "arrow"; a.textContent = "→";
+            flow.appendChild(a);
+          }
+        });
+        const a = document.getElementById("flow-Alexa"); if (a) a.classList.add("done");
+        const nx = document.getElementById("flow-Nexus"); if (nx) nx.classList.add("done");
+      }
+      function markFlow(sub, cls) {
+        const n = document.getElementById("flow-" + (SUB_LABEL[sub] || sub));
+        if (n) { n.classList.remove("active", "done", "fail"); n.classList.add(cls); }
+      }
+
+      const stepEls = {};
+      function addStep(step, index, total) {
+        const wrap = document.createElement("div"); wrap.className = "step"; wrap.id = "step-" + step.id;
+        wrap.innerHTML =
+          '<div class="mark" id="mark-' + step.id + '">…</div>' +
+          '<span class="badge ' + step.substrate + '">' + (SUB_LABEL[step.substrate] || step.substrate) + '</span>' +
+          '<div class="body"><div>' + step.say + '</div><div class="state" id="state-' + step.id + '"></div></div>';
+        $("steps").appendChild(wrap);
+        stepEls[step.id] = wrap;
+        markFlow(step.substrate, "active");
+      }
+      function setMark(id, m) { const el = $("mark-" + id); if (el) el.textContent = m; }
+      function setState(id, txt) { const el = $("state-" + id); if (el) el.textContent = txt; }
+
+      function renderConfirm(key, step) {
+        const slot = $("confirmSlot");
+        const div = document.createElement("div"); div.className = "confirm";
+        div.innerHTML =
+          "<h3>⚠ Confirmation needed</h3>" +
+          "<div>" + step.say + "</div>" +
+          '<div class="muted" style="margin-top:6px">Nexus classified this as sensitive and paused before acting.</div>' +
+          '<div class="row"><button id="grant">Yes, do it</button>' +
+          '<button class="ghost" id="deny">No, cancel</button></div>';
+        slot.appendChild(div);
+        speak("This one is sensitive. " + step.say + ". Should I go ahead?");
+        const decide = async (grant) => {
+          div.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          await fetch("/api/confirm?key=" + encodeURIComponent(key) + "&grant=" + grant);
+          div.querySelector("h3").textContent = grant ? "✔ Confirmed" : "✖ Cancelled";
+        };
+        div.querySelector("#grant").onclick = () => decide(true);
+        div.querySelector("#deny").onclick = () => decide(false);
+      }
+
+      let running = false;
+      async function run() {
+        if (running) return; running = true;
+        $("go").disabled = true;
+        $("steps").innerHTML = ""; $("confirmSlot").innerHTML = "";
+        Object.keys(stepEls).forEach((k) => delete stepEls[k]);
+        const objective = $("objective").value.trim();
+        speak("On it.");
+
+        const es = new EventSource("/api/run?objective=" + encodeURIComponent(objective));
+        es.onmessage = (m) => {
+          const e = JSON.parse(m.data);
+          switch (e.type) {
+            case "intro": renderFlow(e.substrates); speak(e.say); break;
+            case "step:start": addStep(e.step, e.index, e.total); break;
+            case "step:observed":
+              if (e.observed && e.observed.state) {
+                const s = e.observed.state;
+                const keys = Object.keys(s).slice(0, 3);
+                setState(e.step.id, keys.map((k) => k + ": " + s[k]).join("  ·  "));
+              } else if (Array.isArray(e.observed)) {
+                setState(e.step.id, e.observed.length + " element(s) found");
+              }
+              break;
+            case "confirm:prompt": renderConfirm(e.key, e.step); break;
+            case "confirm:granted": break;
+            case "confirm:denied": setMark(e.step.id, "✖"); markFlow(e.step.substrate, "fail"); break;
+            case "step:verified":
+              setState(e.step.id, (e.verification.pass ? "✅ verified: " : "❌ mismatch: ") + e.verification.detail);
+              break;
+            case "step:done":
+              setMark(e.step.id, e.pass ? "✅" : "❌");
+              markFlow(e.step.substrate, e.pass ? "done" : "fail");
+              break;
+            case "outro": speak(e.say); break;
+            case "error": speak("I hit a problem: " + e.message); break;
+          }
+        };
+        es.addEventListener("error", () => { es.close(); running = false; $("go").disabled = false; });
+        // The stream ends when the server closes it.
+        es.onerror = () => { es.close(); running = false; $("go").disabled = false; };
+      }
+      $("go").onclick = run;
+      $("objective").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+
+      // Load the capability manifest into the reach panel.
+      fetch("/api/manifest").then((r) => r.json()).then((caps) => {
+        const box = $("manifest");
+        const bySub = {};
+        caps.forEach((c) => { (bySub[c.substrate] = bySub[c.substrate] || []).push(c); });
+        Object.keys(bySub).forEach((sub) => {
+          const h = document.createElement("div");
+          h.style.cssText = "margin-top:10px;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.1em";
+          h.textContent = SUB_LABEL[sub] || sub; box.appendChild(h);
+          bySub[sub].forEach((c) => {
+            const row = document.createElement("div"); row.className = "rowc";
+            row.innerHTML = '<span class="rd ' + c.readiness + '"></span><span>' + c.name + "</span>";
+            box.appendChild(row);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

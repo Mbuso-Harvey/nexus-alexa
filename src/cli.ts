@@ -1,0 +1,155 @@
+#!/usr/bin/env node
+/**
+ * nexus-alexa CLI.
+ *
+ *   nexus-alexa serve [--port N] [--host H] [--token T] [--client]
+ *       Start the MCP 2025-11-25 Streamable HTTP server (the required track technology).
+ *       --client also serves the simulated Alexa+ web client at /.
+ *
+ *   nexus-alexa demo "<objective>" [--confirm] [--json]
+ *       Run the orchestration headless (offline fake substrate) for rehearsal/CI.
+ *
+ *   nexus-alexa capabilities [--json]
+ *       Print the capability manifest with readiness (live/coming) per substrate.
+ */
+
+import { startHttpServer } from "./mcp/http.js";
+import { FakeNexusSubstrate } from "./nexus/substrate.js";
+import { ScenarioPlanBuilder } from "./plan.js";
+import { Orchestrator, directToolCaller } from "./orchestrator.js";
+import { CAPABILITY_MANIFEST } from "./nexus/manifest.js";
+import { startClientServer } from "./client/server.js";
+
+function flag(args: string[], name: string): string | undefined {
+  const i = args.indexOf(`--${name}`);
+  return i >= 0 && i + 1 < args.length ? args[i + 1] : undefined;
+}
+function has(args: string[], name: string): boolean {
+  return args.includes(`--${name}`);
+}
+
+async function main() {
+  const argv = process.argv.slice(2);
+  const cmd = argv[0];
+
+  if (cmd === "serve") {
+    const port = Number(flag(argv, "port") ?? 8391);
+    const host = flag(argv, "host") ?? "127.0.0.1";
+    const token = flag(argv, "token");
+    const substrate = new FakeNexusSubstrate({ ready: "all" });
+    const running = await startHttpServer({ substrate, port, host, bearerToken: token });
+    // eslint-disable-next-line no-console
+    console.error(`[nexus-alexa] MCP Streamable HTTP (2025-11-25) at ${running.url}`);
+    if (token) console.error(`[nexus-alexa] bearer auth required`);
+
+    if (has(argv, "client")) {
+      const clientPort = Number(flag(argv, "client-port") ?? port + 1);
+      const cs = await startClientServer({
+        port: clientPort,
+        host,
+        mcpUrl: running.url,
+        bearerToken: token,
+      });
+      console.error(`[nexus-alexa] Alexa+ simulator at ${cs.url}`);
+    }
+
+    const shutdown = async () => {
+      await running.close();
+      process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    await new Promise(() => undefined);
+    return;
+  }
+
+  if (cmd === "demo") {
+    const objective = argv[1] ?? "Alexa, get me set up for the Acme review at 3";
+    const plan = new ScenarioPlanBuilder().build(objective);
+    if (!plan) {
+      console.error(`[nexus-alexa] no plan for objective: "${objective}"`);
+      process.exit(2);
+    }
+    const substrate = new FakeNexusSubstrate({ ready: "all" });
+    const orch = new Orchestrator(directToolCaller(substrate));
+    const grant = has(argv, "confirm");
+    const result = await orch.run(plan, {
+      confirm: async () => grant,
+      onEvent: (e) => {
+        if (has(argv, "json")) return;
+        switch (e.type) {
+          case "intro":
+            console.log(`\n🗣  "${e.objective}"`);
+            console.log(`🤖 ${e.say}  [${e.substrates.join(", ")}]\n`);
+            break;
+          case "step:start":
+            console.log(`  ${e.index + 1}/${e.total} → [${e.step.substrate}] ${e.step.say}`);
+            break;
+          case "confirm:required":
+            console.log(`      ⚠ CONFIRM required: ${e.preview.reason}`);
+            break;
+          case "confirm:granted":
+            console.log(`      ✔ confirmed`);
+            break;
+          case "confirm:denied":
+            console.log(`      ✖ denied — skipped safely`);
+            break;
+          case "step:verified":
+            console.log(
+              `      ${e.verification.pass ? "✅ verified" : "❌ mismatch"}: ${e.verification.detail}`,
+            );
+            break;
+          case "step:done":
+            if (!e.step.expected) console.log(`      ${e.pass ? "✅" : "❌"}`);
+            break;
+          case "outro":
+            console.log(`\n🤖 ${e.say}  (${e.pass ? "all steps passed" : "with unmet steps"})\n`);
+            break;
+          case "error":
+            console.log(`      ❌ ${e.message}`);
+            break;
+        }
+      },
+    });
+    if (has(argv, "json")) console.log(JSON.stringify(result, null, 2));
+    process.exit(result.ok ? 0 : 1);
+  }
+
+  if (cmd === "capabilities") {
+    if (has(argv, "json")) {
+      console.log(JSON.stringify(CAPABILITY_MANIFEST, null, 2));
+      return;
+    }
+    const bySub = new Map<string, typeof CAPABILITY_MANIFEST>();
+    for (const c of CAPABILITY_MANIFEST) {
+      const list = bySub.get(c.substrate) ?? [];
+      list.push(c);
+      bySub.set(c.substrate, list);
+    }
+    for (const [sub, caps] of bySub) {
+      console.log(`\n${sub}`);
+      for (const c of caps) {
+        const mark = c.readiness === "live" ? "●" : "○";
+        console.log(`  ${mark} ${c.name}  [${c.readiness}]`);
+      }
+    }
+    console.log("\n● live   ○ coming\n");
+    return;
+  }
+
+  console.error(
+    [
+      "nexus-alexa — Alexa+ -> Nexus Semantic -> cross-substrate execution",
+      "",
+      "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N]",
+      "  demo \"<objective>\" [--confirm] [--json]",
+      "  capabilities [--json]",
+    ].join("\n"),
+  );
+  process.exit(cmd ? 2 : 0);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

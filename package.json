@@ -13,7 +13,7 @@
     "nexus-alexa": "src/cli.ts"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');fs.mkdirSync('dist/src/client',{recursive:true});fs.copyFileSync('src/client/ui.html','dist/src/client/ui.html');\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
