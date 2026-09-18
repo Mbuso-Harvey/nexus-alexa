@@ -1,10 +1,14 @@
 /**
  * NexusSubstrate — the seam between the Alexa gateway/orchestrator and NexusOS Semantic.
  *
- * The real implementation (`RealNexusSubstrate`) is backed by the Nexus graph engine and
- * kinetic drivers (BiDi / CDP / UIA / UIAutomator2). The `FakeNexusSubstrate` here is a
- * deterministic in-memory world used for hermetic tests and fully-offline demo dry-runs.
- * Both honour the same semantic contract: discover → query → read → invoke → verify.
+ * The real implementation (RealNexusSubstrate, added as Nexus drivers are merged) is backed
+ * by the Nexus graph engine + kinetic drivers (BiDi / CDP / UIA / AX / UIAutomator2 / WDA).
+ * The FakeNexusSubstrate here is a deterministic in-memory world (seeded from the capability
+ * manifest) used for hermetic tests and fully-offline demo dry-runs. Both honour the same
+ * contract: discover -> query -> read -> invoke (tier-gated) -> verify.
+ *
+ * Readiness: the fake can expose either just the "live" substrates or all manifest substrates,
+ * so we can rehearse the full vision now and flip capabilities live as they connect.
  */
 
 import type {
@@ -16,6 +20,13 @@ import type {
   Verification,
 } from "../types.js";
 import { decide, tierForCapability } from "./security.js";
+import {
+  CAPABILITY_MANIFEST,
+  liveSubstrates,
+  manifestSubstrates,
+  type Readiness,
+} from "./manifest.js";
+import { applyEffect, seedWorld, stripInternal, type WorldNode } from "./world.js";
 
 export interface NexusSubstrate {
   /** Which substrates are currently reachable/ready. */
@@ -27,8 +38,8 @@ export interface NexusSubstrate {
   /** Discover executable capabilities, optionally scoped/filtered. */
   capabilities(substrate: Substrate, find?: string): Promise<Capability[]>;
   /**
-   * Invoke a capability. `confirm` must be true for CONFIRM-tier actions or the
-   * call is blocked (requireConfirm=true) and NO substrate contact occurs.
+   * Invoke a capability. `confirm` must be true for CONFIRM-tier actions or the call is
+   * blocked (requireConfirm=true) and NO substrate contact occurs.
    */
   invoke(opts: {
     substrate: Substrate;
@@ -45,93 +56,31 @@ export interface NexusSubstrate {
   }): Promise<Verification>;
 }
 
-// ---------------------------------------------------------------------------
-// Deterministic in-memory world
-// ---------------------------------------------------------------------------
-
-interface FakeNode extends AxNode {
-  substrate: Substrate;
-  capabilityId?: string;
-  inputs?: string[];
+/** Resolve the effective tier for a capability: explicit manifest override, else derived. */
+function tierFor(capabilityId: string, role: string, name: string, inputs: string[]) {
+  const spec = CAPABILITY_MANIFEST.find((c) => c.capabilityId === capabilityId);
+  if (spec?.tier) return spec.tier;
+  return tierForCapability({ role, name, inputKeys: inputs });
 }
 
-/**
- * A small but realistic multi-app world:
- *  - firefox: a CRM (Acme account + notes) and a design-system page (tokens)
- *  - chrome:  a review dashboard (figures)
- *  - windows: a desktop notes/editor app (populate a brief)
- * plus a billing toggle that is intentionally CONFIRM-tier.
- */
-function seedWorld(): FakeNode[] {
-  return [
-    // Firefox — CRM
-    {
-      substrate: "firefox",
-      axId: "crm.acme.notes",
-      role: "region",
-      name: "Acme account notes",
-      state: { text: "Renewal due Q4. Wants SSO + audit log. Champion: R. Vale." },
-    },
-    {
-      substrate: "firefox",
-      axId: "crm.theme.toggle",
-      role: "switch",
-      name: "Appearance theme",
-      state: { value: "light" },
-      capabilityId: "set_theme",
-      inputs: ["theme"],
-    },
-    // Firefox — design system
-    {
-      substrate: "firefox",
-      axId: "ds.tokens",
-      role: "region",
-      name: "Design tokens",
-      state: {
-        "color.primary": "#4F46E5",
-        "color.surface": "#0B0B0F",
-        "space.md": "16px",
-        "radius.card": "12px",
-      },
-    },
-    // Chrome — review dashboard
-    {
-      substrate: "chrome",
-      axId: "dash.figures",
-      role: "region",
-      name: "Review figures",
-      state: { mrr: "$41,600", churn: "1.8%", nps: "62" },
-    },
-    // Windows — desktop notes/editor
-    {
-      substrate: "windows",
-      axId: "notes.body",
-      role: "textbox",
-      name: "Review brief body",
-      state: { value: "" },
-      capabilityId: "populate_brief",
-      inputs: ["text"],
-    },
-    // Firefox — billing (CONFIRM tier via keyword)
-    {
-      substrate: "firefox",
-      axId: "billing.alerts",
-      role: "switch",
-      name: "Enable weekly billing alerts",
-      state: { value: "off" },
-      capabilityId: "enable_billing_alerts",
-      inputs: ["enabled"],
-    },
-  ];
+export interface FakeOptions {
+  /**
+   * "live"     -> only substrates that have a live manifest capability are available.
+   * "all"      -> every manifest substrate is available (rehearse the full vision).
+   * Substrate[]-> explicit set.
+   */
+  ready?: "live" | "all" | Substrate[];
 }
 
 export class FakeNexusSubstrate implements NexusSubstrate {
-  private nodes: FakeNode[];
+  private nodes: WorldNode[];
   private ready: Substrate[];
 
-  constructor(opts?: { ready?: Substrate[] }) {
+  constructor(opts?: FakeOptions) {
     this.nodes = seedWorld();
-    this.ready = opts?.ready ?? ["firefox", "chrome", "windows"];
+    const r = opts?.ready ?? "all";
+    this.ready =
+      r === "live" ? liveSubstrates() : r === "all" ? manifestSubstrates() : r;
   }
 
   async availableSubstrates(): Promise<Substrate[]> {
@@ -145,8 +94,7 @@ export class FakeNexusSubstrate implements NexusSubstrate {
       .filter((n) => (q.role ? n.role === q.role : true))
       .filter((n) =>
         term
-          ? n.name.toLowerCase().includes(term) ||
-            n.axId.toLowerCase().includes(term)
+          ? n.name.toLowerCase().includes(term) || n.axId.toLowerCase().includes(term)
           : true,
       )
       .map(stripInternal);
@@ -169,11 +117,7 @@ export class FakeNexusSubstrate implements NexusSubstrate {
         substrate: n.substrate,
         name: n.name,
         role: n.role,
-        tier: tierForCapability({
-          role: n.role,
-          name: n.name,
-          inputKeys: n.inputs ?? [],
-        }),
+        tier: tierFor(n.capabilityId!, n.role, n.name, n.inputs ?? []),
         inputs: n.inputs,
       }));
   }
@@ -195,11 +139,7 @@ export class FakeNexusSubstrate implements NexusSubstrate {
         tier: "READ",
       };
     }
-    const tier = tierForCapability({
-      role: n.role,
-      name: n.name,
-      inputKeys: n.inputs ?? [],
-    });
+    const tier = tierFor(n.capabilityId!, n.role, n.name, n.inputs ?? []);
     // The gate runs BEFORE any state mutation — mirrors invokeCapability() in Nexus.
     const decision = decide({
       tier,
@@ -217,7 +157,6 @@ export class FakeNexusSubstrate implements NexusSubstrate {
         observed: null,
       };
     }
-    // Passed the gate — apply the deterministic state change.
     applyEffect(n, opts.inputs);
     return {
       ok: true,
@@ -258,31 +197,4 @@ export class FakeNexusSubstrate implements NexusSubstrate {
   }
 }
 
-function applyEffect(
-  n: FakeNode,
-  inputs?: Record<string, string | number | boolean>,
-): void {
-  n.state = n.state ?? {};
-  switch (n.capabilityId) {
-    case "set_theme":
-      n.state.value = String(inputs?.theme ?? "dark");
-      break;
-    case "populate_brief":
-      n.state.value = String(inputs?.text ?? "");
-      break;
-    case "enable_billing_alerts":
-      n.state.value = inputs?.enabled === false ? "off" : "on";
-      break;
-    default:
-      break;
-  }
-}
-
-function stripInternal(n: FakeNode): AxNode {
-  return {
-    axId: n.axId,
-    role: n.role,
-    name: n.name,
-    state: n.state ? { ...n.state } : undefined,
-  };
-}
+export { type Readiness };
