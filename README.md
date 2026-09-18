@@ -82,6 +82,31 @@ curl http://127.0.0.1:8391/healthz          # {"ok":true,"protocol":"2025-11-25"
 Any MCP 2025-11-25 client can `initialize → tools/list → tools/call` against
 `http://127.0.0.1:8391/mcp`. A bearer token can be required with `--token <secret>`.
 
+## Live web substrate (real Firefox execution)
+
+Firefox is a **genuinely live** substrate: `src/nexus/firefox.ts` drives a real Firefox via
+geckodriver using NexusOS Semantic's own WebDriver BiDi client — real semantic reads, a real
+click on the app's own control, and verification by re-reading the app's own state.
+
+```bash
+# 1. geckodriver (started with the BiDi origin allowlist) + Firefox installed
+geckodriver --port 4444 --allow-origins http://127.0.0.1:9222
+
+# 2. a target web app (the NexusOS Semantic demo SaaS works out of the box)
+node path/to/nexusos-semantic/demo/saas/server.cjs   # serves http://127.0.0.1:7311
+
+# 3. serve with Firefox bound to the real driver
+npx tsx src/cli.ts serve --client --web-app http://127.0.0.1:7311
+#   firefox: real   chrome/windows/…: simulated
+
+# quick standalone proof (no MCP): real read -> real theme switch -> real verify
+npx tsx scripts/live-firefox.ts http://127.0.0.1:7311
+```
+
+In the web client, ask *"switch the app to dark mode and show me the design tokens"* — Firefox
+reads the live theme, extracts the app's real CSS design tokens, clicks the real theme toggle,
+and verifies the change, all labeled **live**.
+
 ## Bringing real Nexus substrates online
 
 The system is designed so real Nexus functionality **just connects** — no changes to the

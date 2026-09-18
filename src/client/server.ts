@@ -14,7 +14,12 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { ScenarioPlanBuilder } from "../plan.js";
+import {
+  ScenarioPlanBuilder,
+  LiveWebPlanBuilder,
+  CompositePlanBuilder,
+  type PlanBuilder,
+} from "../plan.js";
 import { Orchestrator, httpToolCaller, type OrchestratorEvent } from "../orchestrator.js";
 import { CAPABILITY_MANIFEST } from "../nexus/manifest.js";
 
@@ -28,6 +33,8 @@ export interface ClientServerOptions {
   bearerToken?: string;
   /** Per-substrate backing ("real" | "fake") for truthful live-vs-simulated labels. */
   backing?: Record<string, "real" | "fake">;
+  /** Planner to use (default: live-web first, then the cross-substrate scenario). */
+  planner?: PlanBuilder;
 }
 
 export interface RunningClientServer {
@@ -50,6 +57,9 @@ export async function startClientServer(
 ): Promise<RunningClientServer> {
   const host = opts.host ?? "127.0.0.1";
   const html = readFileSync(join(__dirname, "ui.html"), "utf8");
+  const planner =
+    opts.planner ??
+    new CompositePlanBuilder([new LiveWebPlanBuilder(), new ScenarioPlanBuilder()]);
 
   // Pending confirmation decisions keyed by run+step, resolved by the browser.
   const pendingConfirms = new Map<string, (grant: boolean) => void>();
@@ -101,7 +111,7 @@ export async function startClientServer(
         const autoConfirm = url.searchParams.get("autoConfirm") === "true";
         const runId = Math.random().toString(36).slice(2, 10);
 
-        const plan = new ScenarioPlanBuilder().build(objective);
+        const plan = planner.build(objective);
         res.writeHead(200, {
           "content-type": "text/event-stream",
           "cache-control": "no-cache",

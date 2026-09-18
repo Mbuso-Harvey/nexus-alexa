@@ -18,7 +18,7 @@ import { ScenarioPlanBuilder } from "./plan.js";
 import { Orchestrator, directToolCaller } from "./orchestrator.js";
 import { CAPABILITY_MANIFEST } from "./nexus/manifest.js";
 import { startClientServer } from "./client/server.js";
-import { buildSubstrate, loadConfig } from "./nexus/build.js";
+import { buildSubstrate, buildSubstrateAsync, loadConfig, type SubstrateConfig } from "./nexus/build.js";
 import { rehearse } from "./rehearse.js";
 
 function flag(args: string[], name: string): string | undefined {
@@ -37,7 +37,10 @@ async function main() {
     const port = Number(flag(argv, "port") ?? 8391);
     const host = flag(argv, "host") ?? "127.0.0.1";
     const token = flag(argv, "token");
-    const built = buildSubstrate(loadConfig(flag(argv, "config")));
+    const cfg: SubstrateConfig = loadConfig(flag(argv, "config"));
+    const webAppUrl = flag(argv, "web-app");
+    if (webAppUrl) cfg.webApp = { baseUrl: webAppUrl };
+    const built = await buildSubstrateAsync(cfg);
     const running = await startHttpServer({
       substrate: built.substrate,
       port,
@@ -174,7 +177,7 @@ async function main() {
     [
       "nexus-alexa — Alexa+ -> Nexus Semantic -> cross-substrate execution",
       "",
-      "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N]",
+      "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N] [--web-app <url>] [--config <path>]",
       "  demo \"<objective>\" [--confirm] [--json]",
       "  rehearse [\"<objective>\"] [--runs 5] [--required 5]",
       "  capabilities [--json]",

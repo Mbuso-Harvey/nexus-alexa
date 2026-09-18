@@ -33,6 +33,16 @@ export interface SubstrateConfig {
   nexus?: NexusServerSpec;
   /** Restrict the simulated set (default: all manifest substrates not marked real). */
   simulated?: Substrate[];
+  /**
+   * Drive the `firefox` substrate as REAL via the direct WebDriver BiDi driver
+   * (Nexus BiDi client + geckodriver) against this web app. Takes precedence over
+   * a Nexus-MCP binding for firefox. Requires geckodriver on 4444 + Firefox.
+   */
+  webApp?: {
+    baseUrl: string;
+    webDriverBase?: string;
+    bidiOrigin?: string;
+  };
 }
 
 export interface BuiltSubstrate {
@@ -63,7 +73,13 @@ export function loadConfig(configPath?: string): SubstrateConfig {
           args: process.env.NEXUS_ARGS ? process.env.NEXUS_ARGS.split(" ") : undefined,
         }
       : undefined;
-    return { real, nexus };
+    const webApp = process.env.NEXUS_ALEXA_WEBAPP
+      ? { baseUrl: process.env.NEXUS_ALEXA_WEBAPP }
+      : undefined;
+    return { real, nexus, webApp };
+  }
+  if (process.env.NEXUS_ALEXA_WEBAPP) {
+    return { webApp: { baseUrl: process.env.NEXUS_ALEXA_WEBAPP } };
   }
   return {};
 }
@@ -77,6 +93,59 @@ export function buildSubstrate(config: SubstrateConfig): BuiltSubstrate {
   const fake = new FakeNexusSubstrate({ ready: "all" });
 
   const bindings: Binding[] = all.map((substrate) => {
+    if (real.has(substrate) && config.nexus) {
+      const impl = new RealNexusSubstrate({
+        command: config.nexus.command,
+        args: config.nexus.args,
+        env: config.nexus.env,
+        substrate,
+      });
+      closables.push(impl);
+      return { substrate, impl, backing: "real" };
+    }
+    return { substrate, impl: fake, backing: "fake" };
+  });
+
+  const composite = new CompositeSubstrate(bindings);
+  return { substrate: composite, composite, closables };
+}
+
+/**
+ * Async builder that additionally supports driving `firefox` as a REAL web substrate via the
+ * direct BiDi driver (dynamically imported so the core build/tests don't depend on it). When
+ * `config.webApp` is set, firefox is bound to a live FirefoxSubstrate; everything else follows
+ * the same rules as buildSubstrate.
+ */
+export async function buildSubstrateAsync(config: SubstrateConfig): Promise<BuiltSubstrate> {
+  const base = buildSubstrate(config);
+  if (!config.webApp) return base;
+
+  // Dynamically import the real Firefox driver (excluded from the core tsconfig so the
+  // hermetic build/tests never pull in the Nexus source it depends on). The import
+  // specifier is built at runtime so tsc does not eagerly resolve it into the program.
+  const mod: any = await import(["./", "firefox.js"].join(""));
+  const FirefoxSubstrate = mod.FirefoxSubstrate as new (o: {
+    baseUrl: string;
+    webDriverBase?: string;
+    bidiOrigin?: string;
+  }) => import("./substrate.js").NexusSubstrate & { connect(): Promise<void>; close(): Promise<void> };
+  const fx = new FirefoxSubstrate({
+    baseUrl: config.webApp.baseUrl,
+    webDriverBase: config.webApp.webDriverBase,
+    bidiOrigin: config.webApp.bidiOrigin,
+  });
+  await fx.connect();
+
+  // Rebuild bindings with firefox -> real BiDi driver.
+  const all = manifestSubstrates();
+  const fake = new FakeNexusSubstrate({ ready: "all" });
+  const real = new Set(config.real ?? []);
+  const closables: Array<{ close(): Promise<void> }> = [fx];
+
+  const bindings: Binding[] = all.map((substrate) => {
+    if (substrate === "firefox") {
+      return { substrate, impl: fx, backing: "real" };
+    }
     if (real.has(substrate) && config.nexus) {
       const impl = new RealNexusSubstrate({
         command: config.nexus.command,

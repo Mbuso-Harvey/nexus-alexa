@@ -168,3 +168,61 @@ export class ScenarioPlanBuilder implements PlanBuilder {
     };
   }
 }
+
+/**
+ * LiveWebPlanBuilder — plans that target the REAL Firefox web substrate bindings
+ * (`settings.theme`, `settings.tokens`) so the live demo exercises genuine execution end to
+ * end: read the theme, extract real design tokens, switch the theme, verify by re-read. Use
+ * this planner when firefox is bound to the real FirefoxSubstrate.
+ */
+export class LiveWebPlanBuilder implements PlanBuilder {
+  build(objective: string): Plan | null {
+    const o = objective.toLowerCase();
+    if (!(o.includes("dark") || o.includes("theme") || o.includes("design") || o.includes("token"))) {
+      return null;
+    }
+    return {
+      objective,
+      intro: "On it. I'll read the app, pull its design tokens, and switch it to dark.",
+      steps: [
+        {
+          id: "s1",
+          say: "Read the current appearance theme",
+          substrate: "firefox",
+          kind: "read",
+          target: "settings.theme",
+        },
+        {
+          id: "s2",
+          say: "Extract the app's live design tokens",
+          substrate: "firefox",
+          kind: "read",
+          target: "settings.tokens",
+        },
+        {
+          id: "s3",
+          say: "Switch the appearance theme to dark",
+          substrate: "firefox",
+          kind: "invoke",
+          target: "settings.theme",
+          capabilityId: "settings.theme",
+          inputs: { theme: "dark" },
+          expected: { value: "dark" },
+        },
+      ],
+      outro: "Done — the app is in dark mode and I've captured its design tokens.",
+    };
+  }
+}
+
+/** Tries each builder in order; returns the first non-null plan. */
+export class CompositePlanBuilder implements PlanBuilder {
+  constructor(private readonly builders: PlanBuilder[]) {}
+  build(objective: string): Plan | null {
+    for (const b of this.builders) {
+      const p = b.build(objective);
+      if (p) return p;
+    }
+    return null;
+  }
+}

@@ -56,4 +56,28 @@
 - **Suggested fix:** Vite/Vitest could scope PostCSS config discovery to the project root by default, or warn rather than hard-fail when a discovered config's plugin is missing.
 - **Evidence:** `vitest.config.ts`.
 
+## 2026-09-18 — Live web substrate
+
+### F-005 · geckodriver · Orphan session blocks new BiDi session ("Session already started")
+- **Task:** Create a fresh WebDriver BiDi session to drive Firefox for the live substrate.
+- **Steps:** `geckodriver --port 4444 --allow-origins http://127.0.0.1:9222`, then create a session.
+- **Expected:** New session created.
+- **Actual:** `/status` reported `{"message":"Session already started","ready":false}` — a prior/orphaned geckodriver process still held a single-session slot, blocking new sessions.
+- **Severity:** Important (blocks all live web execution until cleared).
+- **Workaround:** Kill the stray geckodriver process and start a fresh one; then `/status` returns `ready:true`. Our driver also relies on Nexus's session-create retry on "Session is already started".
+- **Time lost:** ~8 min.
+- **Suggested fix:** geckodriver could expose a way to reset/evict an orphaned session, or the docs could clearly note the single-session model and recommend a clean restart between runs. A demo reset step now restarts geckodriver.
+- **Evidence:** `/status` output before/after; `scripts/live-firefox.ts` succeeds after a clean restart.
+
+### F-006 · WebDriver BiDi · Origin allowlist required for the BiDi WebSocket handshake
+- **Task:** Open the BiDi WebSocket after creating the session.
+- **Steps:** Start geckodriver without `--allow-origins`; attempt the BiDi WS handshake.
+- **Expected:** WS connects.
+- **Actual:** The handshake is rejected unless geckodriver was started with `--allow-origins <origin>` matching the `Origin` header the client sends (`http://127.0.0.1:9222`).
+- **Severity:** Minor (once known).
+- **Workaround:** Always launch geckodriver with `--allow-origins http://127.0.0.1:9222` and send that same Origin on the WS.
+- **Time lost:** ~5 min.
+- **Suggested fix:** A clearer error message naming the required `--allow-origins` value would shorten diagnosis.
+- **Evidence:** `README.md` live-substrate section; `src/nexus/firefox.ts` `bidiOrigin` default.
+
 <!-- Add new entries above this line as they occur during implementation. -->
