@@ -178,12 +178,26 @@ export class ScenarioPlanBuilder implements PlanBuilder {
 export class LiveWebPlanBuilder implements PlanBuilder {
   build(objective: string): Plan | null {
     const o = objective.toLowerCase();
-    if (!(o.includes("dark") || o.includes("theme") || o.includes("design") || o.includes("token"))) {
-      return null;
-    }
+    const relevant =
+      o.includes("dark") ||
+      o.includes("theme") ||
+      o.includes("design") ||
+      o.includes("token") ||
+      o.includes("ticket") ||
+      o.includes("workspace") ||
+      o.includes("admin") ||
+      o.includes("set up") ||
+      o.includes("set me up") ||
+      o.includes("get me") ||
+      o.includes("review");
+    if (!relevant) return null;
+
+    // The full live web story: read → design intelligence → real create → context-aware
+    // admin read → destructive CONFIRM beat → theme switch. Every step runs on real Firefox.
     return {
       objective,
-      intro: "On it. I'll read the app, pull its design tokens, and switch it to dark.",
+      intro:
+        "On it. I'll read the app, pull its design tokens, file a ticket, check the admin view, and switch it to dark — and I'll ask before anything risky.",
       steps: [
         {
           id: "s1",
@@ -201,6 +215,37 @@ export class LiveWebPlanBuilder implements PlanBuilder {
         },
         {
           id: "s3",
+          say: "File a support ticket in the app",
+          substrate: "firefox",
+          kind: "invoke",
+          target: "tickets.create",
+          capabilityId: "tickets.create",
+          inputs: {
+            title: "Prepared by Nexus for the review",
+            severity: "medium",
+            body: "Filed via Alexa+ through Nexus Semantic.",
+          },
+          expected: { dialog: "open" },
+        },
+        {
+          id: "s4",
+          say: "Switch to the administrator identity and read the admin-only view",
+          substrate: "firefox",
+          kind: "read",
+          target: "settings.adminView",
+        },
+        {
+          id: "s5",
+          say: "Reach the destructive 'Delete workspace' control (sensitive — I'll confirm first)",
+          substrate: "firefox",
+          kind: "invoke",
+          target: "settings.deleteWorkspace",
+          capabilityId: "settings.deleteWorkspace",
+          expected: { dialog: "open" },
+          sensitive: true,
+        },
+        {
+          id: "s6",
           say: "Switch the appearance theme to dark",
           substrate: "firefox",
           kind: "invoke",
@@ -210,7 +255,8 @@ export class LiveWebPlanBuilder implements PlanBuilder {
           expected: { value: "dark" },
         },
       ],
-      outro: "Done — the app is in dark mode and I've captured its design tokens.",
+      outro:
+        "Done. I read the app, captured its design tokens, filed a ticket, verified the admin view, paused for your approval on the destructive action, and switched it to dark.",
     };
   }
 }

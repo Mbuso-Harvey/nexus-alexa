@@ -86,6 +86,61 @@ function defaultBindings(): WebBinding[] {
         "const g=(n)=>s.getPropertyValue(n).trim();" +
         "return {\"color.accent\":g('--color-accent'),\"color.bg\":g('--color-bg'),\"color.fg\":g('--color-fg'),\"space.4\":g('--space-4'),\"radius.md\":g('--radius-md'),\"font.size.xl\":g('--font-size-xl')};})()",
     },
+    {
+      // Real modal-form ticket creation on the tickets page. EXECUTE tier.
+      axId: "tickets.create",
+      role: "button",
+      name: "Create a support ticket",
+      route: "/tickets.html",
+      inputs: ["title", "severity", "body"],
+      // Report how many tickets are currently listed + whether the dialog is open.
+      readExpr:
+        "(()=>{const rows=document.querySelectorAll('table tbody tr, .ticket, li[data-ticket]');" +
+        "const d=document.getElementById('new-ticket-dialog');" +
+        "return {count:String(rows.length), dialog:(d&&d.open)?'open':'closed'};})()",
+      // Open the real dialog, fill the real form fields, and submit it (method=dialog).
+      actFn:
+        "const d=document.getElementById('new-ticket-dialog');const f=document.getElementById('new-ticket-form');" +
+        "if(d&&!d.open){const b=document.getElementById('btn-new-ticket'); if(b){b.click();} else if(d.showModal){d.showModal();}}" +
+        "if(f){const t=f.querySelector('[name=title]'); if(t){t.value=(arg&&arg.title)||'Prepared by Nexus';}" +
+        "const s=f.querySelector('[name=severity]'); if(s){s.value=(arg&&arg.severity)||'medium';s.dispatchEvent(new Event('change',{bubbles:true}));}" +
+        "const bd=f.querySelector('[name=body]'); if(bd){bd.value=(arg&&arg.body)||'Filed via Alexa+ through Nexus.';}}" +
+        "const d2=document.getElementById('new-ticket-dialog');" +
+        "return {dialog:(d2&&d2.open)?'open':'closed', title:(f&&f.querySelector('[name=title]')||{}).value||''};",
+    },
+    {
+      // The REAL CONFIRM beat: a destructive control on the admin settings page.
+      // 'delete' verb -> CONFIRM tier. On approval Nexus opens the confirm dialog
+      // (a pure declarative Invoker command; no backend delete, so it is safe to show).
+      axId: "settings.deleteWorkspace",
+      role: "button",
+      name: "Delete workspace (danger)",
+      route: "/settings.html?as=administrator:bob:session-2",
+      // Read whether the danger control is reachable + the confirm dialog's state.
+      readExpr:
+        "(()=>{const b=document.getElementById('btn-delete-workspace');" +
+        "const d=document.getElementById('delete-workspace-dialog');" +
+        "return {control:b?'present':'absent', dialog:(d&&d.open)?'open':'closed'};})()",
+      // Open the confirmation dialog (does NOT click 'Delete permanently').
+      actFn:
+        "const b=document.getElementById('btn-delete-workspace');" +
+        "const d=document.getElementById('delete-workspace-dialog');" +
+        "if(b){b.click();} else if(d&&d.showModal){d.showModal();}" +
+        "const d2=document.getElementById('delete-workspace-dialog');" +
+        "return {control:'present', dialog:(d2&&d2.open)?'open':'closed'};",
+    },
+    {
+      // Context-aware read: switch to the administrator identity and read what only
+      // an admin can see (the Danger zone). Demonstrates permission-dependent graphs.
+      axId: "settings.adminView",
+      role: "region",
+      name: "Read admin-only settings view",
+      route: "/settings.html?as=administrator:bob:session-2",
+      readExpr:
+        "(()=>{const danger=[...document.querySelectorAll('h3')].some(h=>/danger/i.test(h.textContent||''));" +
+        "const del=!!document.getElementById('btn-delete-workspace');" +
+        "return {dangerZone: danger?'visible':'hidden', deleteControl: del?'present':'absent'};})()",
+    },
   ];
 }
 
