@@ -18,8 +18,9 @@ import {
   ScenarioPlanBuilder,
   LiveWebPlanBuilder,
   CompositePlanBuilder,
-  type PlanBuilder,
+  AsyncCompositePlanBuilder,
 } from "../plan.js";
+import { BedrockPlanBuilder } from "../plan-bedrock.js";
 import { Orchestrator, httpToolCaller, type OrchestratorEvent } from "../orchestrator.js";
 import { CAPABILITY_MANIFEST } from "../nexus/manifest.js";
 
@@ -33,8 +34,8 @@ export interface ClientServerOptions {
   bearerToken?: string;
   /** Per-substrate backing ("real" | "fake") for truthful live-vs-simulated labels. */
   backing?: Record<string, "real" | "fake">;
-  /** Planner to use (default: live-web first, then the cross-substrate scenario). */
-  planner?: PlanBuilder;
+  /** Enable the Bedrock (AWS Builder) planner when AWS credentials are present. Default true. */
+  useBedrock?: boolean;
 }
 
 export interface RunningClientServer {
@@ -57,9 +58,15 @@ export async function startClientServer(
 ): Promise<RunningClientServer> {
   const host = opts.host ?? "127.0.0.1";
   const html = readFileSync(join(__dirname, "ui.html"), "utf8");
-  const planner =
-    opts.planner ??
-    new CompositePlanBuilder([new LiveWebPlanBuilder(), new ScenarioPlanBuilder()]);
+  const deterministic = new CompositePlanBuilder([
+    new LiveWebPlanBuilder(),
+    new ScenarioPlanBuilder(),
+  ]);
+  const bedrock =
+    (opts.useBedrock ?? true) && BedrockPlanBuilder.credentialsPresent()
+      ? new BedrockPlanBuilder()
+      : null;
+  const planner = new AsyncCompositePlanBuilder(bedrock, deterministic);
 
   // Pending confirmation decisions keyed by run+step, resolved by the browser.
   const pendingConfirms = new Map<string, (grant: boolean) => void>();
@@ -111,13 +118,15 @@ export async function startClientServer(
         const autoConfirm = url.searchParams.get("autoConfirm") === "true";
         const runId = Math.random().toString(36).slice(2, 10);
 
-        const plan = planner.build(objective);
         res.writeHead(200, {
           "content-type": "text/event-stream",
           "cache-control": "no-cache",
           connection: "keep-alive",
         });
         const send = (e: unknown) => res.write(`data: ${JSON.stringify(e)}\n\n`);
+
+        const { plan, plannedBy } = await planner.build(objective);
+        send({ type: "planned", plannedBy, hasPlan: Boolean(plan) });
 
         if (!plan) {
           send({ type: "error", message: `I can't map "${objective}" to a task yet.` });

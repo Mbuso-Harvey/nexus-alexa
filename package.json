@@ -21,6 +21,7 @@
     "dev": "tsx src/cli.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1136.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.5.0"
   },

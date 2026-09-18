@@ -105,9 +105,39 @@ failed until we set `css.postcss` explicitly — a footgun when running inside a
 
 ---
 
-## AWS Builder mini-challenge (in progress)
+## 6. Amazon Bedrock (`@aws-sdk/client-bedrock-runtime`) — AWS Builder mini-challenge
 
-Development is being done with **Kiro** (Kiro Crew qualifies as a hackathon dev tool on its own).
-If a runtime AWS role is added (e.g. Amazon Bedrock behind the simulator's intent parser via the
-`PlanBuilder` seam), it will be documented here with the specific service and integration point —
-and only added if it has real architectural purpose, since a single trivial call is "obvious."
+**Used for:** The **planning/intent layer**. `BedrockPlanBuilder` (src/plan-bedrock.ts) uses the
+Bedrock **Converse API** to turn an arbitrary spoken request into a *validated, ordered plan of
+real Nexus capability invocations*, grounded in the live capability manifest. Bedrock does the
+hard agentic reasoning (which capabilities, in what order, with what inputs); Nexus executes and
+semantically verifies the plan over MCP 2025-11-25 Streamable HTTP. This is a purposeful
+multi-service architecture (Bedrock plans → Nexus executes/verifies), not a single decorative
+text-generation call.
+
+**Why it's not "obvious":**
+- The model is constrained to the real capability catalogue; hallucinated capabilities are
+  dropped during validation before anything touches a substrate.
+- Safety is still enforced downstream by Nexus's tier gate regardless of the model's output.
+- It unlocks open-ended natural language ("tidy up my workspace and darken the UI") instead of
+  keyword matching, while the deterministic planners remain as a guaranteed fallback.
+
+**What worked well:**
+- The Converse API is model-agnostic and gives a clean `system` + `messages` shape; temperature 0
+  yields stable JSON plans.
+- Dynamic import of the SDK keeps the offline demo dependency-light — no AWS calls unless
+  credentials are present.
+
+**What needs work:**
+- Model availability differs by region/account; a first call can fail with access-not-granted
+  until the model is enabled in the Bedrock console. We handle this by falling back silently to
+  the deterministic planner and surfacing a "planned deterministically" label.
+
+**Onboarding:** Straightforward with an AWS account that has Bedrock model access enabled and
+standard credentials (`AWS_PROFILE` / keys) + `AWS_REGION`.
+
+**Would use again:** **Yes** — Bedrock is a strong fit for the "understand-and-plan" layer above
+a deterministic execution/verification substrate.
+
+**Dev tooling:** Development is done with **Kiro** (Kiro Crew qualifies as a hackathon dev tool on
+its own for the AWS Builder mini-challenge, independent of the runtime Bedrock integration above).

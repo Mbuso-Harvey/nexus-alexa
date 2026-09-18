@@ -272,3 +272,34 @@ export class CompositePlanBuilder implements PlanBuilder {
     return null;
   }
 }
+
+/** A planner that may do async work (e.g. call Bedrock). */
+export interface AsyncPlanBuilder {
+  buildAsync(objective: string): Promise<Plan | null>;
+}
+
+/**
+ * Async composite: try an async planner (Bedrock) first for open-ended NL understanding, then
+ * fall back to the deterministic sync planners so the demo works with or without AWS.
+ * Also exposes which planner produced the plan (for truthful "planned by" labels).
+ */
+export class AsyncCompositePlanBuilder {
+  constructor(
+    private readonly asyncFirst: AsyncPlanBuilder | null,
+    private readonly syncFallback: PlanBuilder,
+    private readonly asyncLabel = "bedrock",
+    private readonly syncLabel = "deterministic",
+  ) {}
+
+  async build(objective: string): Promise<{ plan: Plan | null; plannedBy: string }> {
+    if (this.asyncFirst) {
+      try {
+        const p = await this.asyncFirst.buildAsync(objective);
+        if (p) return { plan: p, plannedBy: this.asyncLabel };
+      } catch {
+        // fall through
+      }
+    }
+    return { plan: this.syncFallback.build(objective), plannedBy: this.syncLabel };
+  }
+}

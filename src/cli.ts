@@ -20,6 +20,7 @@ import { CAPABILITY_MANIFEST } from "./nexus/manifest.js";
 import { startClientServer } from "./client/server.js";
 import { buildSubstrate, buildSubstrateAsync, loadConfig, type SubstrateConfig } from "./nexus/build.js";
 import { rehearse } from "./rehearse.js";
+import { BedrockPlanBuilder } from "./plan-bedrock.js";
 
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(`--${name}`);
@@ -69,6 +70,10 @@ async function main() {
         backing,
       });
       console.error(`[nexus-alexa] Alexa+ simulator at ${cs.url}`);
+      const bedrockOn = BedrockPlanBuilder.credentialsPresent();
+      console.error(
+        `[nexus-alexa]   planner: ${bedrockOn ? "Amazon Bedrock (AWS Builder) + deterministic fallback" : "deterministic (set AWS creds to enable Bedrock)"}`,
+      );
     }
 
     const shutdown = async () => {

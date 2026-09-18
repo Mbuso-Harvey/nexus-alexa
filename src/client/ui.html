@@ -242,6 +242,11 @@
         es.onmessage = (m) => {
           const e = JSON.parse(m.data);
           switch (e.type) {
+            case "planned": {
+              const by = e.plannedBy === "bedrock" ? "Planned by Amazon Bedrock" : "Planned deterministically";
+              $("sayText").textContent = by + " …";
+              break;
+            }
             case "intro": renderFlow(e.substrates); speak(e.say); break;
             case "step:start": addStep(e.step, e.index, e.total); break;
             case "step:observed":
