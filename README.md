@@ -65,8 +65,10 @@ npx tsx src/cli.ts serve --client
 # Alexa+ simulator at http://127.0.0.1:8392/
 ```
 
-Open `http://127.0.0.1:8392/`, click a suggestion (or speak), and watch one request cross
-Firefox → Chrome → Windows, verify each step, and pause at the billing **CONFIRM** gate.
+Without extra flags every substrate is **simulated** (clearly labelled in the UI) — a quick way
+to see the interaction model and the MCP server. To run the **real live demo** (Firefox web +
+Windows native desktop), use the `--web-app ... --desktop` invocation in
+[Live substrates](#live-substrates-real-firefox--real-windows-the-cross-substrate-crossing) below.
 
 ### Headless demo / rehearsal (no browser)
 

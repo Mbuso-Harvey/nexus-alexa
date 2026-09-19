@@ -49,7 +49,7 @@
 - **Task:** Run `vitest`.
 - **Steps:** `npx vitest run` from the project root.
 - **Expected:** Tests run.
-- **Actual:** Vite walked up the tree, found `C:\Users\Harvey\postcss.config.js` (a Tailwind config unrelated to this project), and failed: "Cannot find module '@tailwindcss/postcss'".
+- **Actual:** Vite walked up the tree, found a `postcss.config.js` in a parent/home directory (an unrelated Tailwind config), and failed: "Cannot find module '@tailwindcss/postcss'".
 - **Severity:** Minor.
 - **Workaround:** Set `css: { postcss: {} }` in `vitest.config.ts` to stop PostCSS config discovery.
 - **Time lost:** ~5 min.

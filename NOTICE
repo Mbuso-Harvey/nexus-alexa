@@ -1,0 +1,19 @@
+Nexus for Alexa+
+Copyright 2026 Mbuso-Harvey
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+------------------------------------------------------------------------------
+Third-party / vendored components
+------------------------------------------------------------------------------
+
+This repository vendors a minimal, unmodified subset of NexusOS Semantic under
+vendor/nexus/ for reproducibility. That subset is:
+
+  NexusOS Semantic
+  Copyright NexusOS Systems
+  Licensed under the Apache License, Version 2.0.
+  See vendor/nexus/LICENSE and vendor/nexus/README.md for provenance and the
+  exact files included (WebDriver BiDi client + Windows UI Automation bridge).
+
+No modifications were made to the vendored files; attribution is preserved.

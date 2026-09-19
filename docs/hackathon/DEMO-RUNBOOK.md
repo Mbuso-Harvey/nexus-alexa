@@ -5,16 +5,20 @@ as part of the product: do a clean run before recording.
 
 ## Prerequisites
 - Node.js ≥ 24, npm.
-- Firefox installed (e.g. `C:\Program Files\Mozilla Firefox\firefox.exe`).
-- geckodriver on disk (e.g. `C:\Users\Harvey\bin\geckodriver.exe`).
-- NexusOS Semantic checkout available (for the demo app + the BiDi client the live driver uses).
+- Firefox installed (any standard install location).
+- geckodriver installed — on `PATH`, or point to it via the `GECKODRIVER` env var / the
+  `-Geckodriver` arg of the reliability gate. Get it from
+  https://github.com/mozilla/geckodriver/releases.
+- A target web app. The NexusOS Semantic demo SaaS works out of the box (`demo/saas/server.cjs`).
+- Windows with PowerShell (for the native Windows substrate). Classic `notepad.exe` is the target.
 - Optional (AWS Builder): AWS credentials + a Bedrock model enabled in your region.
 
 ## 1. Start geckodriver (clean)
 Kill any stray instance first (a leftover session blocks new ones — see FRICTION-LOG F-005), then:
 ```powershell
 Get-Process geckodriver -ErrorAction SilentlyContinue | Stop-Process -Force
-& "C:\Users\Harvey\bin\geckodriver.exe" --port 4444 --allow-origins http://127.0.0.1:9222
+# geckodriver must be on PATH (or use its full path here)
+geckodriver --port 4444 --allow-origins http://127.0.0.1:9222
 # verify: GET http://127.0.0.1:4444/status -> {"value":{"ready":true}}
 ```
 

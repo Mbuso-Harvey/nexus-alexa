@@ -44,7 +44,8 @@ destructive, it stops and asks first."
 
 ## 1:45–2:15 — The architecture reveal
 **Visual:** Simple diagram: `Alexa+ (simulated) → MCP 2025-11-25 Streamable HTTP → Nexus tools →
-Firefox / Chrome / Windows / …`. Highlight the transport badge and `protocol: 2025-11-25`.
+Firefox (web, LIVE) + Windows (native, LIVE)`, with Chrome/macOS/Android/iOS shown greyed as
+"Nexus reach / roadmap". Highlight the transport badge and `protocol: 2025-11-25`.
 **VO:** "Under the hood: a real, self-hosted MCP server on the 2025-11-25 Streamable HTTP
 transport the Alexa+ track requires. Amazon Bedrock plans the request; Nexus executes and
 verifies it. The same MCP layer works for any agent — not just Alexa."
