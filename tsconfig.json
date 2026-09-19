@@ -19,7 +19,9 @@
   "exclude": [
     "node_modules",
     "dist",
+    "vendor/**",
     "src/nexus/firefox.ts",
+    "src/nexus/windows.ts",
     "scripts/**"
   ]
 }

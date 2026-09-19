@@ -11,13 +11,13 @@
  * Requirements to run: geckodriver on 127.0.0.1:4444 (started with
  * `--allow-origins http://127.0.0.1:9222`), Firefox installed, and a reachable target app.
  *
- * The import path points at the Nexus source in the research clone during private development;
- * at publish time it becomes a normal package import of NexusOS Semantic. Kept out of the
- * default (hermetic) test run so `npm test` needs no browser.
+ * The BiDi client is consumed from `vendor/nexus/` (a vendored, unmodified, Apache-2.0 subset of
+ * NexusOS Semantic) so a cold clone is fully reproducible. Kept out of the default (hermetic)
+ * test run so `npm test` needs no browser.
  */
 
-import { BiDiSession } from "../../../_research_awg/src/bidi-client/session.js";
-import type { Page } from "../../../_research_awg/src/bidi-client/page.js";
+import { BiDiSession } from "../../vendor/nexus/bidi-client/session.js";
+import type { Page } from "../../vendor/nexus/bidi-client/page.js";
 import type {
   AxNode,
   Capability,
