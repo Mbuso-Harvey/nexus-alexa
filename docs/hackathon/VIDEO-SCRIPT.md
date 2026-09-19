@@ -23,20 +23,24 @@ substrates (web/desktop/mobile) with live/coming dots.
 over the Model Context Protocol."
 **On-screen text:** *Alexa+ → Nexus Semantic → real cross-substrate execution*
 
-## 0:24–1:45 — One request, real execution (the core)
-**Action:** In the simulator, speak: **"Alexa, set me up for the review."**
-Show the execution visualizer light up `Alexa → Nexus → Firefox` and the steps run **on the real
-Firefox window to the right**:
-1. **Reads** the current theme (semantic, not a screenshot). *[on-screen: "semantic read"]*
+## 0:24–1:55 — One request, real execution across web AND native desktop (the core)
+**Setup:** Split screen — the simulator, the real **Firefox** window, and the real **Notepad**
+window all visible. **Speak:** **"Alexa, set me up for the Acme review."**
+Show the visualizer light up `Alexa → Nexus → Firefox → Windows` and the steps run for real:
+1. Firefox: **reads** the current theme (semantic, not a screenshot). *[on-screen: "semantic read"]*
 2. **Extracts the app's real design tokens** — color swatches render live. *[on-screen: "design intelligence — impossible for a vision-only agent"]*
 3. **Files a support ticket** — the real modal opens and fills. *[on-screen: "real action"]*
 4. **Switches to the admin identity** and reads the admin-only "danger zone". *[on-screen: "context-aware / permission-dependent"]*
-5. **Reaches the destructive "Delete workspace" control** → **pauses**. A confirmation card
-   appears; Alexa asks, *"This one is sensitive — should I go ahead?"* Click **Yes**; it opens the
-   confirm dialog (no data is deleted). *[on-screen: "explicit safety boundary — CONFIRM"]*
-6. **Switches the theme to dark** — the real page flips to dark. *[on-screen: "verified: observed == expected"]*
+5. **Reaches the destructive "Delete workspace" control** → **pauses**. Alexa asks, *"This one is
+   sensitive — should I go ahead?"* Click **Yes**; it opens the confirm dialog (no data deleted).
+   *[on-screen: "explicit safety boundary — CONFIRM"]*
+6. **Switches the theme to dark** — the real page flips to dark. *[on-screen: "verified"]*
+7. **THE CROSSING:** Nexus moves into the real **native Windows Notepad** and **types the review
+   brief** — the viewer watches text appear in a real desktop app. Nexus reads the window's own
+   state back to verify. *[on-screen: "same architecture — web → native desktop"]*
 **VO (over the run):** "One sentence. Nexus finds each capability by meaning, does it in the real
-browser, and *verifies* the result — and when something's destructive, it stops and asks first."
+browser, then crosses into a real native Windows app — and *verifies* each result. When something's
+destructive, it stops and asks first."
 
 ## 1:45–2:15 — The architecture reveal
 **Visual:** Simple diagram: `Alexa+ (simulated) → MCP 2025-11-25 Streamable HTTP → Nexus tools →

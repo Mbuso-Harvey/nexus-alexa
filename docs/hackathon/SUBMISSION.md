@@ -14,13 +14,17 @@ becomes real, verified execution across your digital environments — the browse
 mobile as they come online — with an explicit safety pause before anything destructive.
 
 ## What it does
-Say *"Alexa, set me up for the review."* Nexus:
-1. **reads** the app's current state semantically (ARIA roles/names, not screenshots),
+Say *"Alexa, set me up for the Acme review."* One request crosses from a real web app into a real
+native Windows app, all through Nexus:
+1. **reads** the web app's state semantically (ARIA roles/names, not screenshots),
 2. **extracts the app's real design tokens** (design intelligence a vision-only agent can't do),
 3. **files a support ticket** through the app's real modal form,
 4. **switches to the admin identity** and reads the admin-only view (context-aware / permission-dependent),
 5. **reaches a destructive "Delete workspace" control and pauses** for spoken confirmation (safety boundary),
-6. **switches the theme to dark** — and **verifies** every step by semantic re-read.
+6. **switches the theme to dark**, then
+7. **crosses into a real native Windows application** (Notepad) and **writes the review brief** into it,
+   verified by reading the native window's own state back — proving Nexus operates fundamentally
+   different environments through one semantic architecture. Every step is verified, not assumed.
 
 ## How it's built
 - **Real MCP 2025-11-25 Streamable HTTP server** exposing the Nexus tool surface — the technology
@@ -31,6 +35,9 @@ Say *"Alexa, set me up for the review."* Nexus:
   destructive/billing/admin actions (`src/orchestrator.ts`, `src/nexus/security.ts`).
 - **Live web substrate:** a real Firefox driven via geckodriver using NexusOS Semantic's own
   WebDriver BiDi client — real reads, real clicks, real verification (`src/nexus/firefox.ts`).
+- **Live native desktop substrate:** a real Windows app (Notepad) operated through Nexus's shipped
+  Windows UIA capabilities (list/scrape/focus/click/type), element-targeted via the scraped
+  geometry and verified through Nexus's own scrape read-back (`src/nexus/windows.ts`).
 - **Simulated Alexa+ client** (permitted by the rules): voice in/out, confirmation cards, and an
   execution visualizer, driving the **real** MCP server (`src/client/`).
 - **Amazon Bedrock (AWS Builder):** the planning layer. Bedrock's Converse API turns arbitrary
@@ -62,7 +69,9 @@ and repeatable without data loss.
 ## Testing instructions
 - `npm install && npm test` → 26 hermetic tests (MCP conformance, orchestration over Streamable
   HTTP, safety gate, composite routing, Bedrock fallback, reliability).
-- Live demo: see `docs/hackathon/DEMO-RUNBOOK.md`.
+- Live substrate proofs: `scripts/live-firefox-full.ts`, `scripts/live-windows.ts`,
+  `scripts/live-combined.ts` (the Firefox→Windows crossing), and `scripts/reliability-gate.ps1`
+  (5/5 clean runs). Full steps in `docs/hackathon/DEMO-RUNBOOK.md`.
 - Quick transport check: `GET http://127.0.0.1:8391/healthz` → `{"protocol":"2025-11-25"}`.
 
 ## Open Source mini-challenge

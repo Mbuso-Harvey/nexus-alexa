@@ -1,8 +1,14 @@
+> **HISTORICAL SNAPSHOT (2026-09-18, pre-implementation).** The original plan, kept for provenance.
+> The delivered implementation follows this approach and adds: live **Windows** native substrate
+> (Firefox→Windows crossing), an Amazon Bedrock planning layer (AWS Builder), and a vendored Nexus
+> subset for reproducibility. For the final state see `README.md` and `docs/hackathon/SUBMISSION.md`;
+> where they differ from this plan, they govern.
+
 # Amazon Alexa+ Hackathon 2026 — Execution Plan (Deliverable #2)
 
 **Depends on:** `AMAZON-ALEXA-INVESTIGATION.md`
-**Status:** Proposed plan. **Not started.** Awaiting `EXECUTE`.
-**Recommended approach:** Hybrid — real Nexus MCP server on **MCP 2025-11-25 Streamable HTTP** (Path B), demoed by a **simulated Alexa+ web client** (Path C), orchestrating **Firefox + Chrome + Windows**.
+**Status:** Historical plan (superseded by the delivered implementation — see README/SUBMISSION).
+**Recommended approach:** Hybrid — real Nexus MCP server on **MCP 2025-11-25 Streamable HTTP** (Path B), demoed by a **simulated Alexa+ web client** (Path C). Delivered demo makes **Firefox + Windows** live.
 
 ---
 

@@ -1,3 +1,10 @@
+> **HISTORICAL SNAPSHOT (2026-09-18, pre-implementation).** This is the original investigation
+> written before any code existed. It is kept for provenance. For the ACTUAL final implementation,
+> see the top-level `README.md`, `docs/hackathon/SUBMISSION.md`, and `docs/hackathon/DEMO-RUNBOOK.md`.
+> Where this document and the final docs differ, the final docs govern. Notably, the delivered demo
+> makes **Firefox (web) and Windows (native desktop)** live, adds an Amazon Bedrock planning layer,
+> and consumes Nexus via a vendored subset for reproducibility.
+
 # Amazon Alexa+ Hackathon 2026 — Investigation (Deliverable #1)
 
 **Project working title:** Nexus for Alexa+

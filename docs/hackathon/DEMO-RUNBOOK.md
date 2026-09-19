@@ -31,38 +31,51 @@ $env:NEXUS_ALEXA_BEDROCK_MODEL = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
 ```
 Without these, the demo runs on the deterministic planner (labeled truthfully).
 
-## 4. Start Nexus-for-Alexa+ (MCP server + simulator, firefox = real)
+## 4. Start Nexus-for-Alexa+ (MCP server + simulator, Firefox + Windows both real)
 ```powershell
-npx tsx src/cli.ts serve --port 8391 --client --client-port 8392 --web-app http://127.0.0.1:7311
+npx tsx src/cli.ts serve --port 8391 --client --client-port 8392 --web-app http://127.0.0.1:7311 --desktop
 # expect:
 #   MCP Streamable HTTP (2025-11-25) at http://127.0.0.1:8391/mcp
-#   firefox: real   (others: simulated)
+#   firefox: real   windows: real   (chrome/macos/android/ios: simulated)
 #   planner: Amazon Bedrock (…)  OR  deterministic (…)
 ```
+`--desktop` binds the real Windows substrate (Nexus UIA) that operates classic Notepad.
 
 ## 5. Run the demo
-Open `http://127.0.0.1:8392/`. Arrange the window beside the real Firefox window Nexus controls.
-Speak or type: **"Alexa, set me up for the review."**
+Open `http://127.0.0.1:8392/`. Arrange the window so the real Firefox window AND the Notepad
+window Nexus controls are visible. Speak or type: **"Alexa, set me up for the Acme review."**
 
-Expected (all on the real Firefox, verified):
-1. read theme → 2. extract design tokens (swatches) → 3. file a ticket → 4. read admin-only view
-→ 5. **CONFIRM** on "Delete workspace" (approve) → 6. switch to dark. Outro: all steps ✅.
+Expected — one request crossing web → native, verified at each step:
+1. Firefox: read theme → 2. extract design tokens (swatches) → 3. file a ticket →
+4. read admin-only view → 5. **CONFIRM** on "Delete workspace" (approve) → 6. switch to dark →
+7. **Windows: the review brief is typed into the real native Notepad** (title shows the unsaved
+`*` marker Nexus reads back). Outro: all steps ✅.
 
-## 6. Pre-record reliability gate
-Offline (no browser) rehearsal of the deterministic path:
+## 6. Pre-record reliability gate (run the ACTUAL final demo, not just hermetic)
 ```powershell
-npx tsx src/cli.ts rehearse --runs 5 --required 5      # expect READY
-```
-Live path proof (real browser, all bindings):
-```powershell
-npx tsx scripts/live-firefox-full.ts http://127.0.0.1:7311   # expect FULL LIVE WEB STORY PROVEN
-```
-Do at least 3 clean live runs before recording. Restart geckodriver between runs if a session sticks.
+# hermetic (no browser/desktop):
+npm test                                                     # 26 passing
 
-## 7. Reset between takes
-- Restart geckodriver (clean session).
-- The demo app has no backend delete, so the "Delete workspace" beat is safe and repeatable.
-- Theme resets on page reload; the ticket dialog is per-session.
+# live substrate proofs:
+npx tsx scripts/live-firefox-full.ts http://127.0.0.1:7311   # FULL LIVE WEB STORY PROVEN
+npx tsx scripts/live-windows.ts                              # LIVE WINDOWS SUBSTRATE PROVEN
+npx tsx scripts/live-combined.ts http://127.0.0.1:7311       # FIREFOX -> WINDOWS ... PROVEN
+
+# the gate: 5 consecutive clean runs of the combined demo, full reset between each:
+powershell -ExecutionPolicy Bypass -File scripts/reliability-gate.ps1 -Runs 5   # expect CLEAN RUNS: 5/5
+```
+
+## 7. Reset between takes (IMPORTANT for reliability)
+A stale geckodriver/Firefox causes "Failed to decode response from marionette". Between every
+run, fully reset:
+```powershell
+Get-Process geckodriver, firefox, notepad -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep 2
+# then restart geckodriver (step 1) and re-serve (step 4)
+```
+The demo app has no backend delete, so the "Delete workspace" beat is safe and repeatable; theme
+resets on page reload; Notepad opens fresh each run. `scripts/reliability-gate.ps1` automates this
+reset loop.
 
 ## Troubleshooting
 - `Session already started` / `ready:false` → kill and restart geckodriver (F-005).
