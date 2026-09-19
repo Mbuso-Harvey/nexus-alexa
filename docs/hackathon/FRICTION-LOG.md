@@ -80,4 +80,29 @@
 - **Suggested fix:** A clearer error message naming the required `--allow-origins` value would shorten diagnosis.
 - **Evidence:** `README.md` live-substrate section; `src/nexus/firefox.ts` `bidiOrigin` default.
 
+## 2026-09-18 — Public-release audit
+
+### F-007 · Windows UIA (Nexus bridge) · Foreground SendKeys is focus-race sensitive
+- **Task:** Repeatedly drive the native Windows brief (Notepad) through Nexus (`focus → scrape → click → type`) and verify via Nexus scrape.
+- **Steps:** `scripts/live-windows.ts` run multiple times; combined gate `scripts/reliability-gate.ps1`.
+- **Expected:** Consistent PASS (native window becomes dirty; Nexus scrape confirms).
+- **Actual:** Intermittent. On a quiet desktop it passes (verified earlier 5/5); under a busy desktop with other apps/automation competing for the foreground, Nexus's `SendText` (which uses `SendKeys.SendWait` to the focused window) sometimes does not land, so the edit stays clean. Measured ~2/3 individually and 0/5 on the combined gate during this audit session (a loaded environment).
+- **Severity:** Important (reliability for recording).
+- **Workaround:** Record on a quiet desktop with no focus-stealing apps; full reset between runs; the substrate retries once. A future Nexus enhancement (element-scoped UIA ValuePattern.SetValue) would remove the foreground dependency entirely.
+- **Suggested fix:** Add an element-targeted set-value path to the Nexus Windows bridge so text does not depend on foreground focus.
+
+### F-008 · Nexus UIA bridge · Timed-out calls can leave orphaned PowerShell children
+- **Task:** Run the Windows substrate repeatedly during the audit.
+- **Actual:** When a bridge call exceeds the timeout, the spawned `powershell.exe` child can keep running; repeated timeouts pile up processes that contend for UI Automation COM and slow subsequent calls (cascading timeouts).
+- **Severity:** Important.
+- **Workaround:** Reset between runs (kill stray `powershell`/`node`/`geckodriver`/`notepad`) — the reliability gate does this. Raised the substrate's bridge timeout to 30s to absorb cold-start latency.
+- **Suggested fix:** Ensure the daemon kills the spawned child process tree on timeout.
+
+### F-009 · WebDriver BiDi (Firefox) · Combined multi-substrate launch is less reliable than standalone
+- **Task:** Run the combined Firefox→Windows demo (`scripts/live-combined.ts`, both substrates live).
+- **Actual:** The standalone Firefox proof (`scripts/live-firefox-full.ts`) passes cleanly and repeatably; the combined run (which brings up Firefox/BiDi and the Windows substrate together) intermittently fails the Firefox steps under load. Root cause appears to be session/timing contention when both live substrates initialise in the same process on a busy machine.
+- **Severity:** Important (the headline demo is the combined crossing).
+- **Workaround:** Record on a quiet desktop; fresh geckodriver per run; reset discipline.
+- **Suggested fix:** Serialise/stagger substrate initialisation and add BiDi session-create retry hardening in the combined path.
+
 <!-- Add new entries above this line as they occur during implementation. -->

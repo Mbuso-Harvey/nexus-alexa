@@ -86,7 +86,9 @@ export class WindowsSubstrate implements NexusSubstrate {
     this.appPath = opts.appPath ?? "C:\\Windows\\System32\\notepad.exe";
     this.processName = opts.processName ?? "notepad";
     this.powershell = opts.powershellPath ?? "powershell.exe";
-    this.timeoutMs = opts.timeoutMs ?? 15000;
+    // 30s: absorbs PowerShell/UIA cold-start latency (a first ListWindows can take several
+    // seconds on a cold or loaded system) so a single slow call does not fail the demo.
+    this.timeoutMs = opts.timeoutMs ?? 30000;
   }
 
   /** Invoke the vendored Nexus UIA bridge (the exact invocation Nexus's WindowsUiaDaemon uses). */
@@ -255,22 +257,18 @@ export class WindowsSubstrate implements NexusSubstrate {
 
     const text = String(opts.inputs?.text ?? "");
     const w = await this.ensureWindow();
+    // A freshly-launched window needs a moment before it reliably accepts focus/input.
+    await sleep(600);
 
     // The Nexus-native targeted-typing flow: focus -> scrape for the edit rect -> click its
-    // center to place the caret in THAT element -> type.
-    await this.focus(w.windowId);
-    await sleep(400);
-    const tree = await this.scrape(w.windowId);
-    const edit = this.findEditNode(tree);
-    if (edit?.boundingRectangle) {
-      const r = edit.boundingRectangle;
-      await this.click(r.x + r.width / 2, r.y + r.height / 2);
-      await sleep(250);
+    // center to place the caret in THAT element -> type. Retried once if the native state does
+    // not reflect the edit (absorbs focus/foreground timing races on a loaded system).
+    let observed = await this.typeIntoEditor(w.windowId, text);
+    if (!observed?.state?.dirty) {
+      await sleep(500);
+      observed = await this.typeIntoEditor(w.windowId, text);
     }
-    await this.type(text);
-    await sleep(400);
 
-    const observed = await this.read("windows", "windows.brief");
     return {
       ok: true,
       requireConfirm: false,
@@ -278,6 +276,25 @@ export class WindowsSubstrate implements NexusSubstrate {
       tier,
       observed,
     };
+  }
+
+  /** One focus -> scrape -> click-element -> type pass, returning the observed native state. */
+  private async typeIntoEditor(windowId: string, text: string): Promise<AxNode | null> {
+    await this.focus(windowId);
+    await sleep(500);
+    const tree = await this.scrape(windowId);
+    const edit = this.findEditNode(tree);
+    if (edit?.boundingRectangle) {
+      const r = edit.boundingRectangle;
+      await this.click(r.x + r.width / 2, r.y + r.height / 2);
+      await sleep(350);
+    }
+    // Re-assert foreground right before typing so keystrokes land in this window.
+    await this.focus(windowId);
+    await sleep(250);
+    await this.type(text);
+    await sleep(500);
+    return this.read("windows", "windows.brief");
   }
 
   async verify(opts: {
