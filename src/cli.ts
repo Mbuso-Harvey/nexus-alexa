@@ -41,6 +41,7 @@ async function main() {
     const cfg: SubstrateConfig = loadConfig(flag(argv, "config"));
     const webAppUrl = flag(argv, "web-app");
     if (webAppUrl) cfg.webApp = { baseUrl: webAppUrl };
+    if (has(argv, "desktop")) cfg.desktop = cfg.desktop ?? {};
     const built = await buildSubstrateAsync(cfg);
     const running = await startHttpServer({
       substrate: built.substrate,
@@ -182,7 +183,7 @@ async function main() {
     [
       "nexus-alexa — Alexa+ -> Nexus Semantic -> cross-substrate execution",
       "",
-      "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N] [--web-app <url>] [--config <path>]",
+      "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N] [--web-app <url>] [--desktop] [--config <path>]",
       "  demo \"<objective>\" [--confirm] [--json]",
       "  rehearse [\"<objective>\"] [--runs 5] [--required 5]",
       "  capabilities [--json]",

@@ -43,6 +43,16 @@ export interface SubstrateConfig {
     webDriverBase?: string;
     bidiOrigin?: string;
   };
+  /**
+   * Drive the `windows` substrate as REAL via NexusOS Semantic's Windows UIA bridge (operating a
+   * native app such as Notepad). Requires Windows + PowerShell. When set, `windows` is bound to a
+   * live WindowsSubstrate.
+   */
+  desktop?: {
+    /** Native app to operate. Default: classic System32 Notepad. */
+    appPath?: string;
+    processName?: string;
+  };
 }
 
 export interface BuiltSubstrate {
@@ -76,10 +86,16 @@ export function loadConfig(configPath?: string): SubstrateConfig {
     const webApp = process.env.NEXUS_ALEXA_WEBAPP
       ? { baseUrl: process.env.NEXUS_ALEXA_WEBAPP }
       : undefined;
-    return { real, nexus, webApp };
+    const desktop = process.env.NEXUS_ALEXA_DESKTOP === "1" ? {} : undefined;
+    return { real, nexus, webApp, desktop };
   }
-  if (process.env.NEXUS_ALEXA_WEBAPP) {
-    return { webApp: { baseUrl: process.env.NEXUS_ALEXA_WEBAPP } };
+  const envWebApp = process.env.NEXUS_ALEXA_WEBAPP;
+  const envDesktop = process.env.NEXUS_ALEXA_DESKTOP === "1";
+  if (envWebApp || envDesktop) {
+    return {
+      webApp: envWebApp ? { baseUrl: envWebApp } : undefined,
+      desktop: envDesktop ? {} : undefined,
+    };
   }
   return {};
 }
@@ -111,40 +127,58 @@ export function buildSubstrate(config: SubstrateConfig): BuiltSubstrate {
 }
 
 /**
- * Async builder that additionally supports driving `firefox` as a REAL web substrate via the
- * direct BiDi driver (dynamically imported so the core build/tests don't depend on it). When
- * `config.webApp` is set, firefox is bound to a live FirefoxSubstrate; everything else follows
- * the same rules as buildSubstrate.
+ * Async builder that additionally supports driving substrates as REAL:
+ *   - `config.webApp`  -> firefox via the vendored Nexus BiDi client (live browser).
+ *   - `config.desktop` -> windows via the vendored Nexus Windows UIA bridge (live native app).
+ * Both drivers are dynamically imported (import specifier built at runtime) so the hermetic
+ * build/tests never pull them in. Everything else follows the same rules as buildSubstrate.
  */
 export async function buildSubstrateAsync(config: SubstrateConfig): Promise<BuiltSubstrate> {
-  const base = buildSubstrate(config);
-  if (!config.webApp) return base;
+  if (!config.webApp && !config.desktop) return buildSubstrate(config);
 
-  // Dynamically import the real Firefox driver (excluded from the core tsconfig so the
-  // hermetic build/tests never pull in the Nexus source it depends on). The import
-  // specifier is built at runtime so tsc does not eagerly resolve it into the program.
-  const mod: any = await import(["./", "firefox.js"].join(""));
-  const FirefoxSubstrate = mod.FirefoxSubstrate as new (o: {
-    baseUrl: string;
-    webDriverBase?: string;
-    bidiOrigin?: string;
-  }) => import("./substrate.js").NexusSubstrate & { connect(): Promise<void>; close(): Promise<void> };
-  const fx = new FirefoxSubstrate({
-    baseUrl: config.webApp.baseUrl,
-    webDriverBase: config.webApp.webDriverBase,
-    bidiOrigin: config.webApp.bidiOrigin,
-  });
-  await fx.connect();
+  const closables: Array<{ close(): Promise<void> }> = [];
+  const realImpls = new Map<Substrate, NexusSubstrate>();
 
-  // Rebuild bindings with firefox -> real BiDi driver.
+  if (config.webApp) {
+    const mod: any = await import(["./", "firefox.js"].join(""));
+    const FirefoxSubstrate = mod.FirefoxSubstrate as new (o: {
+      baseUrl: string;
+      webDriverBase?: string;
+      bidiOrigin?: string;
+    }) => NexusSubstrate & { connect(): Promise<void>; close(): Promise<void> };
+    const fx = new FirefoxSubstrate({
+      baseUrl: config.webApp.baseUrl,
+      webDriverBase: config.webApp.webDriverBase,
+      bidiOrigin: config.webApp.bidiOrigin,
+    });
+    await fx.connect();
+    closables.push(fx);
+    realImpls.set("firefox", fx);
+  }
+
+  if (config.desktop) {
+    const mod: any = await import(["./", "windows.js"].join(""));
+    const WindowsSubstrate = mod.WindowsSubstrate as new (o: {
+      appPath?: string;
+      processName?: string;
+    }) => NexusSubstrate & { connect(): Promise<void>; close(): Promise<void> };
+    const win = new WindowsSubstrate({
+      appPath: config.desktop.appPath,
+      processName: config.desktop.processName,
+    });
+    await win.connect();
+    closables.push(win);
+    realImpls.set("windows", win);
+  }
+
   const all = manifestSubstrates();
   const fake = new FakeNexusSubstrate({ ready: "all" });
   const real = new Set(config.real ?? []);
-  const closables: Array<{ close(): Promise<void> }> = [fx];
 
   const bindings: Binding[] = all.map((substrate) => {
-    if (substrate === "firefox") {
-      return { substrate, impl: fx, backing: "real" };
+    const liveImpl = realImpls.get(substrate);
+    if (liveImpl) {
+      return { substrate, impl: liveImpl, backing: "real" };
     }
     if (real.has(substrate) && config.nexus) {
       const impl = new RealNexusSubstrate({

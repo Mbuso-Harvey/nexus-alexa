@@ -254,9 +254,25 @@ export class LiveWebPlanBuilder implements PlanBuilder {
           inputs: { theme: "dark" },
           expected: { value: "dark" },
         },
+        {
+          // The cross-substrate crossing: carry the web work into a REAL native Windows app.
+          id: "s7",
+          say: "Write the review brief into the native Windows editor",
+          substrate: "windows",
+          kind: "invoke",
+          target: "windows.brief",
+          capabilityId: "populate_brief",
+          inputs: {
+            text:
+              "Acme review brief - prepared by Nexus.\r\n" +
+              "Renewal due Q4; wants SSO + audit log; budget approved.\r\n" +
+              "Theme set to dark; design tokens captured; ticket filed.",
+          },
+          expected: { dirty: true, hasEditor: true },
+        },
       ],
       outro:
-        "Done. I read the app, captured its design tokens, filed a ticket, verified the admin view, paused for your approval on the destructive action, and switched it to dark.",
+        "Done. I read the web app, captured its design tokens, filed a ticket, verified the admin view, paused for your approval on the destructive action, switched it to dark, and wrote the brief into the native Windows editor.",
     };
   }
 }
