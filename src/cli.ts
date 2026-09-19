@@ -171,11 +171,11 @@ async function main() {
     for (const [sub, caps] of bySub) {
       console.log(`\n${sub}`);
       for (const c of caps) {
-        const mark = c.readiness === "live" ? "●" : "○";
+        const mark = c.readiness === "live-demo" ? "●" : c.readiness === "implemented" ? "◐" : "○";
         console.log(`  ${mark} ${c.name}  [${c.readiness}]`);
       }
     }
-    console.log("\n● live   ○ coming\n");
+    console.log("\n● live in this demo   ◐ implemented in Nexus   ○ roadmap\n");
     return;
   }
 

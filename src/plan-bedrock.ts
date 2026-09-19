@@ -58,7 +58,7 @@ export class BedrockPlanBuilder implements PlanBuilder {
     this.caps = CAPABILITY_MANIFEST.filter(
       (c) =>
         (!opts.substrates || opts.substrates.includes(c.substrate)) &&
-        (!live || c.readiness === "live"),
+        (!live || c.readiness === "live-demo"),
     );
   }
 

@@ -18,7 +18,8 @@
         --warn: #fbbf24;
         --bad: #f87171;
         --live: #34d399;
-        --coming: #64748b;
+        --implemented: #fbbf24;
+      --coming: #64748b;
       }
       * { box-sizing: border-box; }
       body {
@@ -82,8 +83,9 @@
       .confirm .row { display: flex; gap: 10px; margin-top: 10px; }
       .manifest .rowc { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
       .rd { width: 8px; height: 8px; border-radius: 50%; }
-      .rd.live { background: var(--live); box-shadow: 0 0 8px var(--live); }
-      .rd.coming { background: var(--coming); }
+      .rd.live-demo { background: var(--live); box-shadow: 0 0 8px var(--live); }
+      .rd.implemented { background: var(--implemented); }
+      .rd.roadmap { background: var(--coming); }
       .muted { color: var(--dim); font-size: 12px; }
       footer { text-align: center; color: var(--dim); font-size: 11px; padding: 16px; }
       @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
@@ -122,7 +124,9 @@
       <section class="card manifest">
         <h2>Nexus capability reach</h2>
         <div class="muted" style="margin-bottom:8px">
-          What Alexa can drive through Nexus across your digital world. ● live now · ○ coming online.
+          What Alexa can drive through Nexus. <span style="color:var(--live)">●</span> live in this demo ·
+          <span style="color:var(--implemented)">●</span> implemented in Nexus ·
+          <span style="color:var(--coming)">●</span> roadmap.
         </div>
         <div id="manifest"></div>
       </section>
@@ -315,7 +319,9 @@
           h.textContent = SUB_LABEL[sub] || sub; box.appendChild(h);
           bySub[sub].forEach((c) => {
             const row = document.createElement("div"); row.className = "rowc";
-            row.innerHTML = '<span class="rd ' + c.readiness + '"></span><span>' + c.name + "</span>";
+            const rLabel = { "live-demo": "live", "implemented": "in Nexus", "roadmap": "roadmap" }[c.readiness] || c.readiness;
+            row.innerHTML = '<span class="rd ' + c.readiness + '"></span><span>' + c.name +
+              ' <span class="muted" style="font-size:10px">(' + rLabel + ')</span></span>';
             box.appendChild(row);
           });
         });

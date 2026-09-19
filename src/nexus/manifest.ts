@@ -1,23 +1,26 @@
 /**
- * Nexus capability manifest — the full cross-substrate vision, decoupled from wiring status.
+ * Nexus capability manifest — the full cross-substrate vision with HONEST readiness labels.
  *
- * This is the single source of truth for WHAT Nexus can do across every substrate. Each
- * capability declares a `readiness`:
- *   - "live"    : wired to a real Nexus driver and demoable now.
- *   - "coming"  : contract is fixed and the fake substrate models it; the real Nexus
- *                 driver is being merged. Flip to "live" when connected — no other code
- *                 changes, because everything upstream (orchestrator, planner, Alexa client,
- *                 visualizer) is driven off this manifest and the NexusSubstrate interface.
+ * Each capability declares a `readiness` using four explicit, non-overlapping states so the
+ * demo and docs never overstate what runs:
+ *   - "live-demo"    : actually executes live in THIS submitted demo configuration, on this
+ *                      machine, through real Nexus. (Firefox web + Windows native brief.)
+ *   - "implemented"  : implemented in NexusOS Semantic and runnable on this machine, but NOT
+ *                      part of the live demo path (e.g. Chrome/CDP — Nexus ships it; we simply
+ *                      don't stand Chrome up in the recorded demo).
+ *   - "roadmap"      : contract is fixed and modelled by the simulated substrate; the real
+ *                      Nexus driver connects through the same seam as it lands. Shown as
+ *                      clearly-labelled roadmap, never presented as working.
  *
- * Design intent (per product direction): plan and build for the FULL breadth now. As real
- * Nexus functionality lands, capabilities flip live and the demo/story widen automatically.
- * The video only ever PRESENTS "live" capabilities as working; "coming" capabilities are
- * shown as clearly-labeled roadmap, never faked.
+ * TRUTHFULNESS RULE: only "live-demo" capabilities are ever presented as executing in the
+ * video. "implemented" is described as "Nexus can, not shown live here"; "roadmap" as future.
+ * The composite substrate independently reports per-substrate backing (real/fake) at runtime,
+ * so on-screen labels reflect what is actually running.
  */
 
 import type { SecurityTier, Substrate } from "../types.js";
 
-export type Readiness = "live" | "coming";
+export type Readiness = "live-demo" | "implemented" | "roadmap";
 
 export interface CapabilitySpec {
   capabilityId: string;
@@ -53,7 +56,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     inputs: ["theme"],
     axId: "crm.theme.toggle",
     location: "/settings/appearance",
-    readiness: "live",
+    readiness: "live-demo",
     blurb: "Semantic control: find + set a setting by intent, no pixel hunting.",
   },
   {
@@ -63,7 +66,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     role: "region",
     axId: "ds.tokens",
     location: "/design-system",
-    readiness: "live",
+    readiness: "live-demo",
     blurb: "Design intelligence: read a site's real DTCG tokens + layout, not a screenshot.",
   },
   {
@@ -74,7 +77,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     inputs: ["enabled"],
     axId: "billing.alerts",
     location: "/settings/billing",
-    readiness: "live",
+    readiness: "live-demo",
     blurb: "Safety boundary: billing keyword forces CONFIRM before Nexus proceeds.",
   },
   {
@@ -86,7 +89,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     tier: "CONFIRM",
     axId: "travel.book",
     location: "/travel/checkout",
-    readiness: "coming",
+    readiness: "roadmap",
     blurb: "Purchasing with a hard human-approval gate: 'This will charge $416 — confirm?'",
   },
 
@@ -98,8 +101,8 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     role: "region",
     axId: "dash.figures",
     location: "authenticated tab",
-    readiness: "live",
-    blurb: "CDP read on a logged-in tab — reach content vision agents can't reliably parse.",
+    readiness: "implemented",
+    blurb: "Nexus ships a Chrome CDP substrate; not stood up in this recorded demo.",
   },
   {
     capabilityId: "compose_email",
@@ -109,7 +112,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     inputs: ["to", "subject", "body"],
     axId: "mail.compose",
     location: "webmail",
-    readiness: "coming",
+    readiness: "roadmap",
     blurb: "Draft prepared semantically; sending is CONFIRM-gated.",
   },
 
@@ -117,13 +120,13 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
   {
     capabilityId: "populate_brief",
     substrate: "windows",
-    name: "Populate a brief in the desktop editor",
+    name: "Write the brief into the native editor",
     role: "textbox",
     inputs: ["text"],
-    axId: "notes.body",
-    location: "Notes.exe",
-    readiness: "live",
-    blurb: "Native desktop kinetics via UIA — the same semantic model as the web.",
+    axId: "windows.brief",
+    location: "Notepad (System32)",
+    readiness: "live-demo",
+    blurb: "Native desktop kinetics via Nexus UIA — the same semantic model as the web.",
   },
   {
     capabilityId: "open_app",
@@ -133,7 +136,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     inputs: ["app"],
     axId: "shell.launch",
     location: "OS shell",
-    readiness: "coming",
+    readiness: "roadmap",
     blurb: "Cross-app orchestration on the desktop, driven from one voice request.",
   },
 
@@ -146,7 +149,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     inputs: ["text"],
     axId: "macos.notes.body",
     location: "Notes.app",
-    readiness: "coming",
+    readiness: "roadmap",
     blurb: "Same semantic contract on macOS AX — one model, every desktop.",
   },
 
@@ -159,7 +162,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     inputs: ["text", "time"],
     axId: "android.reminder.save",
     location: "Clock/Calendar app",
-    readiness: "coming",
+    readiness: "roadmap",
     blurb: "Cross-device: the task follows you onto the phone.",
   },
   {
@@ -169,7 +172,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     role: "button",
     axId: "android.wallet.pass",
     location: "Wallet app",
-    readiness: "coming",
+    readiness: "roadmap",
     blurb: "Verified mobile state, not a screenshot guess.",
   },
 
@@ -182,7 +185,7 @@ export const CAPABILITY_MANIFEST: CapabilitySpec[] = [
     inputs: ["title", "time"],
     axId: "ios.calendar.add",
     location: "Calendar.app",
-    readiness: "coming",
+    readiness: "roadmap",
     blurb: "Rounds out full six-substrate reach as WDA wiring lands.",
   },
 ];
@@ -197,7 +200,8 @@ export function manifestSubstrates(): Substrate[] {
   return [...new Set(CAPABILITY_MANIFEST.map((c) => c.substrate))];
 }
 
-/** Substrates that have at least one live capability. */
+/** Substrates that run live in this demo configuration (Firefox + Windows). */
 export function liveSubstrates(): Substrate[] {
-  return [...new Set(capabilitiesByReadiness("live").map((c) => c.substrate))];
+  return [...new Set(capabilitiesByReadiness("live-demo").map((c) => c.substrate))];
 }
+
