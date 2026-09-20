@@ -135,6 +135,9 @@ export class Orchestrator {
           ) as InvokeResult;
         }
 
+        if (!invokeRes.ok) {
+          emit({ type: "error", step, message: invokeRes.reason });
+        }
         emit({ type: "step:observed", step, observed: invokeRes.observed });
 
         let verification: Verification | undefined;

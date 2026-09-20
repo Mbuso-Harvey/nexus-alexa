@@ -13,6 +13,8 @@
  *       Print the capability manifest with readiness (live/coming) per substrate.
  */
 
+import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import { startHttpServer } from "./mcp/http.js";
 import { ScenarioPlanBuilder } from "./plan.js";
 import { Orchestrator, directToolCaller } from "./orchestrator.js";
@@ -30,6 +32,25 @@ function has(args: string[], name: string): boolean {
   return args.includes(`--${name}`);
 }
 
+function readEngineStats(graphPath?: string): Record<string, string | number> {
+  if (!graphPath) return {};
+  try {
+    const doc = JSON.parse(readFileSync(resolve(graphPath, "graph.json"), "utf8")) as any;
+    const crawl = doc?.crawl ?? {};
+    return {
+      pages: Number(crawl.pages ?? 0),
+      semanticNodes: Array.isArray(doc.axNodes) ? doc.axNodes.length : 0,
+      capabilities: Array.isArray(doc.capabilities) ? doc.capabilities.length : 0,
+      interactionStates: Array.isArray(doc.states) ? doc.states.length : 0,
+      relationships: Array.isArray(doc.edges) ? doc.edges.length : 0,
+      designTokens: Number(crawl.tokens ?? doc.tokens ?? 0),
+      healthScorePercent: doc?.diagnostics?.summary?.healthScorePercent ?? null,
+    };
+  } catch {
+    return {};
+  }
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const cmd = argv[0];
@@ -39,9 +60,39 @@ async function main() {
     const host = flag(argv, "host") ?? "127.0.0.1";
     const token = flag(argv, "token");
     const cfg: SubstrateConfig = loadConfig(flag(argv, "config"));
-    const webAppUrl = flag(argv, "web-app");
-    if (webAppUrl) cfg.webApp = { baseUrl: webAppUrl };
-    if (has(argv, "desktop")) cfg.desktop = cfg.desktop ?? {};
+    if (flag(argv, "web-app")) {
+      throw new Error(
+        "Direct browser mode has been removed. Use --nexus-root, --graph, and --target-app so every live action crosses Nexus.",
+      );
+    }
+
+    const nexusRoot = flag(argv, "nexus-root");
+    const graphPath = flag(argv, "graph");
+    const targetApp = flag(argv, "target-app");
+    const inlineRuntime = nexusRoot || graphPath || targetApp;
+    if (inlineRuntime) {
+      if (!nexusRoot || !graphPath || !targetApp) {
+        throw new Error("--nexus-root, --graph, and --target-app must be supplied together");
+      }
+      const includeDesktop = has(argv, "desktop");
+      cfg.real = includeDesktop ? ["firefox", "windows"] : ["firefox"];
+      cfg.nexus = {
+        command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+        args: [
+          "run",
+          "nexus",
+          "serve",
+          "--graph",
+          resolve(graphPath),
+          ...(includeDesktop ? ["--desktop"] : []),
+        ],
+        cwd: resolve(nexusRoot),
+        baseUrl: targetApp,
+        desktopProcessName: "notepad",
+      };
+    } else if (has(argv, "desktop")) {
+      throw new Error("--desktop is valid only with an explicit Nexus runtime configuration");
+    }
     const built = await buildSubstrateAsync(cfg);
     const running = await startHttpServer({
       substrate: built.substrate,
@@ -69,11 +120,13 @@ async function main() {
         mcpUrl: running.url,
         bearerToken: token,
         backing,
+        engineStats: readEngineStats(graphPath),
       });
       console.error(`[nexus-alexa] Alexa+ simulator at ${cs.url}`);
-      const bedrockOn = BedrockPlanBuilder.credentialsPresent();
+      const bedrockOn =
+        BedrockPlanBuilder.credentialsPresent() && Object.values(backing).includes("real");
       console.error(
-        `[nexus-alexa]   planner: ${bedrockOn ? "Amazon Bedrock (AWS Builder) + deterministic fallback" : "deterministic (set AWS creds to enable Bedrock)"}`,
+        `[nexus-alexa]   planner: ${bedrockOn ? "Amazon Bedrock (AWS Builder) + deterministic fallback" : "deterministic (Bedrock requires AWS creds and at least one real substrate)"}`,
       );
     }
 
@@ -183,7 +236,7 @@ async function main() {
     [
       "nexus-alexa — Alexa+ -> Nexus Semantic -> cross-substrate execution",
       "",
-      "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N] [--web-app <url>] [--desktop] [--config <path>]",
+      "  serve [--port 8391] [--host 127.0.0.1] [--token T] [--client] [--client-port N] [--nexus-root <dir> --graph <dir> --target-app <url> [--desktop]] [--config <path>]",
       "  demo \"<objective>\" [--confirm] [--json]",
       "  rehearse [\"<objective>\"] [--runs 5] [--required 5]",
       "  capabilities [--json]",

@@ -133,6 +133,9 @@ export class BedrockPlanBuilder implements PlanBuilder {
       "- Order steps sensibly (read/context before acting; end on the user's main goal).",
       "- Provide inputs only for the listed input names.",
       "- Do NOT decide safety; Nexus enforces confirmation on sensitive actions itself.",
+      "- For an Acme review/setup request, include the full available sequence: map_app_semantics,",
+      "  extract_design_tokens, read_current_theme, set_theme, open_sensitive_dialog, then",
+      "  populate_brief. Supply every listed input.",
       "- Respond with STRICT JSON only, matching:",
       '  {"intro": string, "steps": [{"capabilityId": string, "inputs"?: object}], "outro": string}',
     ].join("\n");
@@ -151,6 +154,72 @@ export class BedrockPlanBuilder implements PlanBuilder {
     }
   }
 
+  private validatedInputs(
+    cap: CapabilitySpec,
+    raw?: Record<string, string | number | boolean>,
+  ): Record<string, string | number | boolean> | undefined {
+    if (!cap.inputs?.length || !raw) return undefined;
+    const entries = cap.inputs
+      .filter((key) => ["string", "number", "boolean"].includes(typeof raw[key]))
+      .map((key) => [key, raw[key]] as const);
+    return entries.length ? Object.fromEntries(entries) : undefined;
+  }
+
+  private expectedState(
+    capabilityId: string,
+    inputs?: Record<string, string | number | boolean>,
+  ): Record<string, string | number | boolean | null> | undefined {
+    switch (capabilityId) {
+      case "set_theme":
+        return { value: String(inputs?.theme ?? "dark") };
+      case "tickets.create":
+        return {
+          dialog: "open",
+          title: String(inputs?.title ?? "Prepared by Nexus"),
+          severity: String(inputs?.severity ?? "medium"),
+          body: String(inputs?.body ?? "Prepared via Alexa+ through Nexus Semantic."),
+        };
+      case "open_sensitive_dialog":
+        return { dialog: "open" };
+      case "populate_brief":
+        return {
+          value: String(inputs?.text ?? "").replace(/\r\n?/g, "\n").replace(/\n+$/g, ""),
+          dirty: true,
+          hasEditor: true,
+        };
+      case "enable_billing_alerts":
+        return { value: inputs?.enabled === false ? "off" : "on" };
+      default:
+        return undefined;
+    }
+  }
+
+  private headlinePlanComplete(objective: string, steps: PlanStep[]): boolean {
+    if (!/(acme|review|set\s+(?:me\s+)?up|get\s+(?:me\s+)?ready)/i.test(objective)) {
+      return true;
+    }
+    const desiredOrder = [
+      "map_app_semantics",
+      "extract_design_tokens",
+      "read_current_theme",
+      "set_theme",
+      "open_sensitive_dialog",
+      "populate_brief",
+    ];
+    const available = new Set(this.caps.map((cap) => cap.capabilityId));
+    const required = desiredOrder.filter((capabilityId) => available.has(capabilityId));
+    let previousIndex = -1;
+    for (const capabilityId of required) {
+      const index = steps.findIndex((step) => step.capabilityId === capabilityId);
+      if (index <= previousIndex) return false;
+      previousIndex = index;
+      const cap = this.caps.find((candidate) => candidate.capabilityId === capabilityId)!;
+      const step = steps[index];
+      if (cap.inputs?.some((input) => !(input in (step.inputs ?? {})))) return false;
+    }
+    return required.length > 0;
+  }
+
   private toPlan(objective: string, mp: ModelPlan): Plan | null {
     const steps: PlanStep[] = [];
     let i = 0;
@@ -159,18 +228,20 @@ export class BedrockPlanBuilder implements PlanBuilder {
       if (!cap) continue; // drop hallucinated / unavailable capabilities
       i += 1;
       const isRead = !cap.inputs && cap.role === "region";
+      const inputs = this.validatedInputs(cap, ms.inputs);
       steps.push({
         id: `b${i}`,
         say: cap.name,
         substrate: cap.substrate,
         kind: isRead ? "read" : "invoke",
         target: cap.axId,
-        capabilityId: isRead ? undefined : cap.capabilityId,
-        inputs: ms.inputs,
+        capabilityId: cap.capabilityId,
+        inputs,
+        expected: isRead ? undefined : this.expectedState(cap.capabilityId, inputs),
         sensitive: (cap.tier ?? "READ") === "CONFIRM",
       });
     }
-    if (steps.length === 0) return null;
+    if (steps.length === 0 || !this.headlinePlanComplete(objective, steps)) return null;
     return {
       objective,
       intro: mp.intro || "On it.",

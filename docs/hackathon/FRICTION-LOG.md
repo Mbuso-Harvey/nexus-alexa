@@ -106,3 +106,37 @@
 - **Suggested fix:** Serialise/stagger substrate initialisation and add BiDi session-create retry hardening in the combined path.
 
 <!-- Add new entries above this line as they occur during implementation. -->
+
+## 2026-09-19 — Submission-readiness repair
+
+### F-010 · Simulator planning · Default quick start selected live-only capability IDs
+- **Task:** Verify the documented `serve --client` quick start against its default all-simulated backing.
+- **Expected:** The simulated interaction uses the deterministic seeded-world contract.
+- **Actual:** The client always tried `LiveWebPlanBuilder` first, producing direct Firefox/Windows IDs that the fake substrate does not expose.
+- **Severity:** Critical (the primary first-run path could show failed steps despite a green test suite).
+- **Fix:** Planner selection now uses runtime backing: seeded scenario planning for fake Firefox, direct live planning for real Firefox, and the Windows crossing only when Windows is real. Bedrock is also restricted to substrates that are real in the current run.
+- **Suggested platform fix:** Make runtime capability discovery the planner’s catalogue rather than maintaining any static capability list.
+
+### F-011 · TypeScript packaging · Successful build omitted live runtime modules
+- **Task:** Verify that `npm run build` produced the live demo advertised by the repository.
+- **Expected:** `dist/` contains the live adapters and their runtime assets.
+- **Actual:** TypeScript explicitly excluded `firefox.ts`, `windows.ts`, the vendored BiDi TypeScript, scripts, and bridge assets. The build exited 0 but a compiled live run would fail at dynamic import.
+- **Severity:** Critical (green build did not mean runnable distribution).
+- **Fix:** Compile both adapters and the vendored BiDi client; copy the UI, UIA bridge, and bundled demo target; point the package binary at `dist/src/cli.js`; add `serve:dist`.
+- **Suggested tool fix:** Add a post-build runtime smoke check for dynamically imported modules and required non-code assets.
+
+### F-012 · Demo reproducibility · Live target required an undisclosed second checkout
+- **Task:** Follow the live-demo setup from a cold project checkout.
+- **Expected:** All project-specific runtime code is present.
+- **Actual:** Instructions referenced `path/to/nexusos-semantic/demo/saas/server.cjs`, but that target was absent from this repository.
+- **Severity:** Important.
+- **Fix:** Vendored the exact Apache-2.0 demo SaaS subset under `demo/saas`, verified all 11 source files byte-for-byte by SHA-256, and added attribution.
+- **Suggested fix:** Treat demo fixtures as versioned release inputs and validate their inventory in CI.
+
+### F-013 · PowerShell release gate · JavaScript syntax in reliability gate + focus/teardown flakes
+- **Task:** Run `scripts/reliability-gate.ps1 -Runs 5` on the final code.
+- **Expected:** 5/5 clean runs of the combined Firefox→Windows proof.
+- **Actual:** (1) The gate used `const process = Start-Process …` (JavaScript syntax) in PowerShell → `CommandNotFoundException: const`, so it crashed before any run. (2) The combined proof printed `…PROVEN` but never exited — `cmdServe` held `await new Promise(() => undefined)` with no stdin-EOF handler, so the Nexus stdio child outlived its MCP parent. (3) The Windows `ReplaceText` bridge intermittently failed `read-back did not match` because Notepad's RichEdit materialized the clipboard paste after the single-shot read-back. (4) `SetForegroundWindow()` returned `false` from the background PowerShell bridge under Windows foreground-lock.
+- **Severity:** Critical (the headline 5-run gate could not pass, and the combined run leaked its process tree).
+- **Fix:** Replaced `const` with `$process`; added stdin `end`/`close` handlers that run `cleanup()` and `process.exit(0)`; retried `SetForegroundWindow` with the ALT-tickle + `AttachThreadInput` technique before failing closed; made the read-back verification retry up to 5×120ms before declaring a mismatch; made the gate decide pass/fail from the `PROVEN` marker + `overall: true` (not a shell exit code contaminated by the Nexus child's inherited stderr).
+- **Suggested platform fix:** Give `StdioServerTransport`/`cmdServe` an explicit "exit on transport close" mode, and make UIA read-back verification retry a controlled number of times by default.

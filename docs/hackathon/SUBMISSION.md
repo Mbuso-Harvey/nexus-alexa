@@ -1,83 +1,83 @@
-# Devpost Submission Draft — Nexus for Alexa+
+# Devpost Submission Copy — Alexa Action Mode
 
 **Primary track:** Alexa+
 **Mini-challenges:** Open Source; AWS Builder
-**Repository:** https://github.com/Mbuso-Harvey/nexus-alexa (private during development; made
-public with Apache-2.0 for submission, or shared with `testing@devpost.com` + `@AmazonAppDev`).
-
----
+**Contribution:** https://github.com/Mbuso-Harvey/nexus-alexa
+**Engine:** Nexus Semantic — https://github.com/nexusos-systems/nexusos-semantic
+**License:** Apache-2.0
 
 ## Elevator pitch
-Alexa can answer questions, but it can't operate the apps you already use unless someone builds a
-custom Alexa integration for each one. **Nexus for Alexa+** removes that limit: one spoken request
-becomes real, verified execution across your digital environments — the browser today, desktop and
-mobile as they come online — with an explicit safety pause before anything destructive.
 
-## What it does
-Say *"Alexa, set me up for the Acme review."* One request crosses from a real web app into a real
-native Windows app, all through Nexus:
-1. **reads** the web app's state semantically (ARIA roles/names, not screenshots),
-2. **extracts the app's real design tokens** (design intelligence a vision-only agent can't do),
-3. **files a support ticket** through the app's real modal form,
-4. **switches to the admin identity** and reads the admin-only view (context-aware / permission-dependent),
-5. **reaches a destructive "Delete workspace" control and pauses** for spoken confirmation (safety boundary),
-6. **switches the theme to dark**, then
-7. **crosses into a real native Windows application** (Notepad) and **writes the review brief** into it,
-   verified by reading the native window's own state back — proving Nexus operates fundamentally
-   different environments through one semantic architecture. Every step is verified, not assumed.
+Say one sentence to Alexa. It understands a real application, changes verified browser state, pauses before a sensitive action, and carries the result into native Windows software—without a custom Alexa integration for either app.
 
-## How it's built
-- **Real MCP 2025-11-25 Streamable HTTP server** exposing the Nexus tool surface — the technology
-  the Alexa+ track requires, imported and called at runtime (`src/mcp/http.ts`, `src/mcp/server.ts`).
-  Origin/DNS-rebinding protection, localhost binding, optional bearer auth, protocol negotiation.
-- **Cross-substrate orchestrator** turns one objective into an ordered plan, executes each step,
-  **verifies** it (`ACTION → EXPECTED → OBSERVED → PASS`), and enforces a **CONFIRM** tier gate on
-  destructive/billing/admin actions (`src/orchestrator.ts`, `src/nexus/security.ts`).
-- **Live web substrate:** a real Firefox driven via geckodriver using NexusOS Semantic's own
-  WebDriver BiDi client — real reads, real clicks, real verification (`src/nexus/firefox.ts`).
-- **Live native desktop substrate:** a real Windows app (Notepad) operated through Nexus's shipped
-  Windows UIA capabilities (list/scrape/focus/click/type), element-targeted via the scraped
-  geometry and verified through Nexus's own scrape read-back (`src/nexus/windows.ts`).
-- **Simulated Alexa+ client** (permitted by the rules): voice in/out, confirmation cards, and an
-  execution visualizer, driving the **real** MCP server (`src/client/`).
-- **Amazon Bedrock (AWS Builder):** the planning layer. Bedrock's Converse API turns arbitrary
-  natural language into a validated, capability-grounded plan; Nexus executes and verifies it. Falls
-  back to deterministic planning with no AWS credentials (`src/plan-bedrock.ts`).
+## What judges see
 
-## What's new for the hackathon (significant update after Aug 31, 2026)
-NexusOS Semantic predates the hackathon and spoke MCP only over stdio + a private TCP socket. New,
-dated work built for this submission:
-1. the **MCP 2025-11-25 Streamable HTTP** transport (the required Alexa+ technology),
-2. the **simulated Alexa+ client** + voice UX + execution visualizer,
-3. the **cross-substrate orchestrator** with per-step semantic verification,
-4. **safety wiring** so every invocation (incl. native kinetics) passes the tier gate,
-5. the **Bedrock planning layer** (AWS Builder),
-6. a **turnkey seam** (`RealNexusSubstrate` / `CompositeSubstrate` / config) so more Nexus
-   substrates connect with no code changes.
+Ask **“Alexa, set me up for the Acme review.”** A visibly labeled simulated Alexa+ experience:
 
-## Why it's creative (not obvious)
-Not a single-turn Q&A bot or a thin MCP wrapper: it's autonomous, multi-step orchestration across a
-real app, with semantic verification, a design-intelligence beat, context-aware permission handling,
-and an explicit human-approval boundary — with Bedrock doing the agentic planning above a
-deterministic execution/verification substrate.
+1. discovers semantic controls in a real application;
+2. extracts its design system as W3C tokens;
+3. reads and changes live Firefox state, then proves the change;
+4. stops for human approval before a CONFIRM-tier account action; and
+5. crosses into native Notepad and verifies the exact resulting text through UI Automation.
 
-## Safety
-Destructive/billing/admin actions are classified **CONFIRM** and are blocked until the user
-approves; the demo's destructive control is a no-backend Invoker command, so the safety beat is real
-and repeatable without data loss.
+The audience sees the outcome first. Selecting **How did Alexa do that?** reveals the engine: Nexus Semantic.
 
-## Testing instructions
-- `npm install && npm test` → 26 hermetic tests (MCP conformance, orchestration over Streamable
-  HTTP, safety gate, composite routing, Bedrock fallback, reliability).
-- Live substrate proofs: `scripts/live-firefox-full.ts`, `scripts/live-windows.ts`,
-  `scripts/live-combined.ts` (the Firefox→Windows crossing), and `scripts/reliability-gate.ps1`
-  (5/5 clean runs). Full steps in `docs/hackathon/DEMO-RUNBOOK.md`.
-- Quick transport check: `GET http://127.0.0.1:8391/healthz` → `{"protocol":"2025-11-25"}`.
+## How it works
 
-## Open Source mini-challenge
-This repository (Apache-2.0) is the new open-source project created during the window; NexusOS
-Semantic, the substrate it builds on, is released as open source alongside it.
-- Contribution URL: <repo URL> · GitHub: Mbuso-Harvey · Description: as above.
+Alexa is a thin experience layer. Every demonstrated capability crosses:
 
-## Product feedback & friction log
+`Alexa simulator → MCP 2025-11-25 Streamable HTTP → one Nexus MCP stdio process → real software`
+
+The single Nexus runtime owns:
+
+- the crawled semantic/interaction/visual graph;
+- graph capability discovery and provenance;
+- W3C DTCG design-token export;
+- the live Firefox WebDriver BiDi session;
+- security-tier decisions and the CONFIRM gate;
+- Windows UI Automation; and
+- fresh post-action read-back.
+
+The Alexa repository contains no live Firefox adapter, copied BiDi client, direct Windows adapter, or copied UIA bridge. Live startup validates Nexus’s required MCP tools and fails closed if the product runtime is absent. Both live substrates share one Nexus process.
+
+## Why this is different
+
+This is not Q&A, screenshot interpretation, or a collection of Alexa-specific app integrations. Nexus gives an agent one semantic execution model across fundamentally different environments. Actions are selected from the application graph, policy-gated, performed through the native substrate, and checked against observed state rather than trusted because an automation API returned success.
+
+## Hackathon work
+
+The hackathon project adds the Alexa client experience, required MCP 2025-11-25 Streamable HTTP gateway, cross-substrate orchestration, confirmation UX, Bedrock planner option, packaged demo fixture and Nexus graph, reliability harness, evidence ledger, friction log, and the integration that makes Nexus the mandatory engine.
+
+The Nexus product was also hardened during integration with bounded graph-approved live reads, BiDi RemoteValue compatibility, focus-verified text invocation, safe UIA text replacement/read-back, explicit desktop targeting, optimistic-concurrency preconditions, and process-tree timeout cleanup.
+
+## AWS Builder
+
+Amazon Bedrock Converse can ground the request in the currently live capability manifest. Unsupported capabilities/inputs are dropped, an incomplete headline plan falls back deterministically, and the UI truthfully identifies which planner produced the run. We claim Bedrock in the video only when the badge says **Planned by Amazon Bedrock**.
+
+## Reproduction
+
+```powershell
+npm install
+npm test
+npm run typecheck
+npm run build
+powershell -ExecutionPolicy Bypass -File scripts/start-hidden-engine-demo.ps1
+```
+
+The sibling Nexus repository is required because it is the product being demonstrated, not a library copied into the Alexa entry. Full setup and proof commands are in `docs/hackathon/DEMO-RUNBOOK.md`.
+
+## Verified engineering evidence
+
+The committed Nexus graph reports 7/7 pages loaded, 408 semantic nodes, 143 capabilities, 50 states, 5,800 edges, 22 tokens, zero failed pages, and zero extractor failures. Dated build/test/live evidence is recorded in `docs/hackathon/READINESS-EVIDENCE.md`; external repository, video, AWS-account, and Devpost checks remain explicit release gates until completed.
+
+## Truthful scope
+
+- Alexa+ presentation: simulated and visibly labeled.
+- MCP HTTP gateway, Nexus process, Firefox, and Windows: real in live mode.
+- Offline fake mode: tests/rehearsal only, never presented as live evidence.
+- Chrome: implemented by Nexus but not shown in this take.
+- macOS/Android/iOS: roadmap.
+
+## Product feedback and friction
+
 See `docs/hackathon/PRODUCT-FEEDBACK.md` and `docs/hackathon/FRICTION-LOG.md`.

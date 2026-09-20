@@ -47,6 +47,8 @@ export interface PlanBuilder {
  * request mentioning theme/billing. Falls back to null when it cannot form a plan.
  */
 export class ScenarioPlanBuilder implements PlanBuilder {
+  constructor(private readonly opts: { windowsLive?: boolean } = {}) {}
+
   build(objective: string): Plan | null {
     const o = objective.toLowerCase();
 
@@ -95,15 +97,20 @@ export class ScenarioPlanBuilder implements PlanBuilder {
         say: "Populate the review brief in the desktop editor",
         substrate: "windows",
         kind: "invoke",
-        target: "notes.body",
+        target: this.opts.windowsLive ? "windows.brief" : "notes.body",
         capabilityId: "populate_brief",
         inputs: {
-          text: "Acme review brief prepared by Nexus. See CRM notes + design tokens + latest figures.",
+          text: "Acme review brief prepared by Nexus. See CRM notes, design tokens, and latest figures.",
         },
-        expected: {
-          value:
-            "Acme review brief prepared by Nexus. See CRM notes + design tokens + latest figures.",
-        },
+        expected: this.opts.windowsLive
+          ? {
+              value: "Acme review brief prepared by Nexus. See CRM notes, design tokens, and latest figures.",
+              dirty: true,
+              hasEditor: true,
+            }
+          : {
+              value: "Acme review brief prepared by Nexus. See CRM notes, design tokens, and latest figures.",
+            },
       },
     ];
 
@@ -170,12 +177,12 @@ export class ScenarioPlanBuilder implements PlanBuilder {
 }
 
 /**
- * LiveWebPlanBuilder — plans that target the REAL Firefox web substrate bindings
- * (`settings.theme`, `settings.tokens`) so the live demo exercises genuine execution end to
- * end: read the theme, extract real design tokens, switch the theme, verify by re-read. Use
- * this planner when firefox is bound to the real FirefoxSubstrate.
+ * Live plan for the genuine Nexus product runtime. The Alexa layer names only semantic goals;
+ * RealNexusSubstrate resolves them through Nexus graph, live-read, safety, and desktop tools.
  */
 export class LiveWebPlanBuilder implements PlanBuilder {
+  constructor(private readonly opts: { includeWindows?: boolean } = {}) {}
+
   build(objective: string): Plan | null {
     const o = objective.toLowerCase();
     const relevant =
@@ -183,96 +190,84 @@ export class LiveWebPlanBuilder implements PlanBuilder {
       o.includes("theme") ||
       o.includes("design") ||
       o.includes("token") ||
-      o.includes("ticket") ||
-      o.includes("workspace") ||
-      o.includes("admin") ||
       o.includes("set up") ||
       o.includes("set me up") ||
       o.includes("get me") ||
       o.includes("review");
     if (!relevant) return null;
 
-    // The full live web story: read → design intelligence → real create → context-aware
-    // admin read → destructive CONFIRM beat → theme switch. Every step runs on real Firefox.
+    const brief =
+      "Acme review brief - prepared from live application context.\n" +
+      "Design tokens captured and appearance verified.\n" +
+      "Sensitive actions remain human-approved.";
+    const steps: PlanStep[] = [
+      {
+        id: "s1",
+        say: "Map the app's semantic controls",
+        substrate: "firefox",
+        kind: "query",
+        target: "Toggle theme",
+        find: "Toggle theme",
+        capabilityId: "map_app_semantics",
+      },
+      {
+        id: "s2",
+        say: "Extract the app's design-token system",
+        substrate: "firefox",
+        kind: "read",
+        target: "settings.tokens",
+        capabilityId: "extract_design_tokens",
+      },
+      {
+        id: "s3",
+        say: "Read the current appearance from the live page",
+        substrate: "firefox",
+        kind: "read",
+        target: "settings.theme",
+        capabilityId: "read_current_theme",
+      },
+      {
+        id: "s4",
+        say: "Switch the appearance to dark and prove the result",
+        substrate: "firefox",
+        kind: "invoke",
+        target: "settings.theme",
+        capabilityId: "set_theme",
+        expected: { value: "dark" },
+      },
+      {
+        id: "s5",
+        say: "Open a sensitive account dialog (I'll ask before acting)",
+        substrate: "firefox",
+        kind: "invoke",
+        target: "safety.dialog",
+        capabilityId: "open_sensitive_dialog",
+        expected: { dialog: "open" },
+        sensitive: true,
+      },
+    ];
+
+    if (this.opts.includeWindows ?? true) {
+      steps.push({
+        id: "s6",
+        say: "Carry the verified result into the native Windows editor",
+        substrate: "windows",
+        kind: "invoke",
+        target: "windows.brief",
+        capabilityId: "populate_brief",
+        inputs: { text: brief },
+        expected: { value: brief },
+      });
+    }
+
     return {
       objective,
       intro:
-        "On it. I'll read the app, pull its design tokens, file a ticket, check the admin view, and switch it to dark — and I'll ask before anything risky.",
-      steps: [
-        {
-          id: "s1",
-          say: "Read the current appearance theme",
-          substrate: "firefox",
-          kind: "read",
-          target: "settings.theme",
-        },
-        {
-          id: "s2",
-          say: "Extract the app's live design tokens",
-          substrate: "firefox",
-          kind: "read",
-          target: "settings.tokens",
-        },
-        {
-          id: "s3",
-          say: "File a support ticket in the app",
-          substrate: "firefox",
-          kind: "invoke",
-          target: "tickets.create",
-          capabilityId: "tickets.create",
-          inputs: {
-            title: "Prepared by Nexus for the review",
-            severity: "medium",
-            body: "Filed via Alexa+ through Nexus Semantic.",
-          },
-          expected: { dialog: "open" },
-        },
-        {
-          id: "s4",
-          say: "Switch to the administrator identity and read the admin-only view",
-          substrate: "firefox",
-          kind: "read",
-          target: "settings.adminView",
-        },
-        {
-          id: "s5",
-          say: "Reach the destructive 'Delete workspace' control (sensitive — I'll confirm first)",
-          substrate: "firefox",
-          kind: "invoke",
-          target: "settings.deleteWorkspace",
-          capabilityId: "settings.deleteWorkspace",
-          expected: { dialog: "open" },
-          sensitive: true,
-        },
-        {
-          id: "s6",
-          say: "Switch the appearance theme to dark",
-          substrate: "firefox",
-          kind: "invoke",
-          target: "settings.theme",
-          capabilityId: "settings.theme",
-          inputs: { theme: "dark" },
-          expected: { value: "dark" },
-        },
-        {
-          // The cross-substrate crossing: carry the web work into a REAL native Windows app.
-          id: "s7",
-          say: "Write the review brief into the native Windows editor",
-          substrate: "windows",
-          kind: "invoke",
-          target: "windows.brief",
-          capabilityId: "populate_brief",
-          inputs: {
-            text:
-              "Acme review brief - prepared by Nexus.\r\n" +
-              "Renewal due Q4; wants SSO + audit log; budget approved.\r\n" +
-              "Theme set to dark; design tokens captured; ticket filed.",
-          },
-          expected: { dirty: true, hasEditor: true },
-        },
-      ],
-      outro:
-        "Done. I read the web app, captured its design tokens, filed a ticket, verified the admin view, paused for your approval on the destructive action, switched it to dark, and wrote the brief into the native Windows editor.",
+        "On it. I'll understand the app, verify the change, pause before anything sensitive, and carry the result into your desktop editor.",
+      steps,
+      outro: (this.opts.includeWindows ?? true)
+        ? "Done. I understood the live app, extracted its design system, verified the appearance change, paused for your approval, and carried the result into the native editor."
+        : "Done. I understood the live app, extracted its design system, verified the appearance change, and paused for your approval.",
     };
   }
 }

@@ -1,59 +1,35 @@
-/**
- * Live proof: drive a REAL Firefox (via geckodriver + Nexus BiDi client) against the demo app.
- *
- * Preconditions:
- *   - geckodriver on 127.0.0.1:4444 started with `--allow-origins http://127.0.0.1:9222`
- *   - Firefox installed
- *   - the target app reachable (default: the Nexus demo SaaS at http://127.0.0.1:7311)
- *
- * Run:  npx tsx scripts/live-firefox.ts [baseUrl]
- *
- * This is intentionally NOT a vitest test (it needs a live browser). It proves the firefox
- * substrate performs real semantic reads, a real theme change, and real verification.
- */
-
-import { FirefoxSubstrate } from "../src/nexus/firefox.js";
+/** Focused Nexus-owned web action: graph read -> graph invoke -> live verification. */
+import { resolve } from "node:path";
+import { buildSubstrateAsync } from "../src/nexus/build.js";
 
 async function main() {
-  const baseUrl = process.argv[2] ?? "http://127.0.0.1:7311";
-  const fx = new FirefoxSubstrate({ baseUrl });
-  console.log(`[live] connecting to Firefox via geckodriver, target ${baseUrl} ...`);
-  await fx.connect();
-
+  const nexusRoot = resolve(process.argv[2] ?? "../_research_awg");
+  const graph = resolve(process.argv[3] ?? "demo/nexus-graph");
+  const baseUrl = process.argv[4] ?? "http://127.0.0.1:7312";
+  const built = await buildSubstrateAsync({
+    real: ["firefox"],
+    nexus: {
+      command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+      args: ["run", "nexus", "serve", "--graph", graph],
+      cwd: nexusRoot,
+      baseUrl,
+    },
+  });
   try {
-    console.log("[live] reading theme before ...");
-    const before = await fx.read("firefox", "settings.theme");
-    console.log("  before:", JSON.stringify(before?.state));
-
-    console.log("[live] extracting design tokens ...");
-    const tokens = await fx.read("firefox", "settings.tokens");
-    console.log("  tokens:", JSON.stringify(tokens?.state));
-
-    console.log("[live] invoking set_theme -> dark ...");
-    const inv = await fx.invoke({
+    const before = await built.substrate.read("firefox", "settings.theme");
+    const invoke = await built.substrate.invoke({ substrate: "firefox", capabilityId: "set_theme" });
+    const verification = await built.substrate.verify({
       substrate: "firefox",
-      capabilityId: "settings.theme",
-      inputs: { theme: "dark" },
-    });
-    console.log("  invoke:", JSON.stringify(inv));
-
-    console.log("[live] verifying theme == dark ...");
-    const ver = await fx.verify({
-      substrate: "firefox",
-      capabilityId: "settings.theme",
+      capabilityId: "set_theme",
       axId: "settings.theme",
       expected: { value: "dark" },
     });
-    console.log("  verify:", JSON.stringify(ver));
-
-    console.log(ver.pass ? "\n✅ LIVE WEB SUBSTRATE PROVEN" : "\n❌ verification failed");
-    process.exitCode = ver.pass ? 0 : 1;
+    console.log(JSON.stringify({ before: before?.state, invoke, verification }, null, 2));
+    const pass = invoke.ok && verification.pass && built.closables.length === 1;
+    console.log(pass ? "NEXUS GRAPH INVOCATION PROVEN" : "NEXUS GRAPH INVOCATION FAILED");
+    process.exitCode = pass ? 0 : 1;
   } finally {
-    await fx.close();
+    for (const closable of built.closables) await closable.close().catch(() => undefined);
   }
 }
-
-main().catch((err) => {
-  console.error("[live] error:", err);
-  process.exit(1);
-});
+main().catch((error) => { console.error(error); process.exit(1); });

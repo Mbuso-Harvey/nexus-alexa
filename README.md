@@ -1,188 +1,133 @@
-# Nexus for Alexa+
+# Alexa Action Mode — powered by Nexus Semantic
 
-> **Alexa understands what you want. Nexus Semantic gives Alexa the hands and the map to do it — across the browser, desktop, and mobile apps you already use.**
+> One ordinary Alexa request. A real browser changes, a sensitive action pauses, and the verified result appears in a native Windows app.
 
-Amazon **Alexa+ Hackathon 2026** submission. It pairs a real, standards-compliant
-**MCP 2025-11-25 Streamable HTTP** server exposing [NexusOS Semantic](https://github.com/nexusos-systems/nexusos-semantic)
-capabilities with a simulated Alexa+ web client that turns **one spoken request** into
-**cross-substrate execution with semantic verification and explicit safety confirmation.**
+This Amazon Alexa+ Hackathon project is the first client experience powered end-to-end by **Nexus Semantic**, our cross-environment execution engine. The main demo deliberately leads with the outcome; the **How did Alexa do that?** reveal then shows the engine behind it.
 
-```
- "Alexa, get me set up for the Acme review at 3."
-        │
-        ▼   (simulated Alexa+ client)
-   ┌──────────────┐   MCP 2025-11-25 Streamable HTTP   ┌───────────────────────┐
-   │  Alexa+ (sim) │ ────────────────────────────────▶ │  Nexus MCP server      │
-   └──────────────┘   POST/GET · SSE · Origin-checked  │  query/read/capabilities│
-                                                        │  invoke (tier-gated)    │
-                                                        │  verify (semantic)      │
-                                                        └───────┬───────┬─────────┘
-                                                                │       │
-                            ┌───────────────┬───────────────────┘       └────────────┐
-                            ▼               ▼                    ▼                    ▼
-                        Firefox          Windows             Chrome            …macOS/Android/iOS
-                        (BiDi) LIVE       (UIA) LIVE          (CDP, in Nexus)   (roadmap)
+The Alexa+ presentation is simulated as permitted by the rules. Everything after the request crosses real MCP boundaries:
+
+```text
+Alexa+ simulator
+  -> MCP 2025-11-25 Streamable HTTP gateway
+    -> one Nexus MCP stdio runtime
+      -> semantic graph + safety policy + WebDriver BiDi + Windows UIA + live verification
 ```
 
-**Live in this demo:** Firefox (web) + Windows (native desktop). Chrome/CDP is implemented in
-Nexus but not stood up in the recorded demo; macOS/Android/iOS are roadmap through the same seam.
+The browser UI contains no browser driver, UIA bridge, or direct application automation. Live startup fails if the genuine Nexus runtime or required tools are unavailable.
 
-## What makes this different
+## The live outcome
 
-- **Semantic control, not blind pixel-clicking.** Nexus operates elements by ARIA role, name, and state.
-- **Cross-substrate, not one-app automation.** One request spans web + desktop + mobile.
-- **Verified state, not assumed success.** Every action is confirmed by a semantic re-read (`ACTION → EXPECTED → OBSERVED → PASS`).
-- **Explicit safety boundaries.** Destructive / billing / admin actions are classified `CONFIRM` and require spoken approval before Nexus proceeds.
+Ask: **“Alexa, set me up for the Acme review.”**
 
-## The hackathon delta
+1. Map the app’s semantic controls from the Nexus graph.
+2. Export its design system as W3C DTCG tokens.
+3. Read the current appearance from the live Firefox page.
+4. Resolve and invoke the graph capability that changes the theme, then verify dark mode from live state.
+5. Reach a CONFIRM-tier account action and pause before Nexus touches it.
+6. Carry the verified result into native Notepad through Nexus Windows UIA, with exact text read-back.
 
-NexusOS Semantic already spoke MCP over **stdio** and a private TCP JSON-RPC socket. The
-Alexa+ track requires a self-hosted MCP server on **spec version 2025-11-25 over Streamable
-HTTP**. This project adds exactly that — the required transport — plus the Alexa-facing
-experience, cross-substrate orchestration with verification, and the safety-confirmation flow.
-See [`docs/hackathon/AMAZON-ALEXA-INVESTIGATION.md`](docs/hackathon/AMAZON-ALEXA-INVESTIGATION.md).
+Firefox and Windows are two different live substrates owned by the same Nexus process.
 
-## Requirements
+## Truthful scope
 
-- Node.js **≥ 24**
-- npm (or pnpm)
+| Surface | Status |
+|---|---|
+| Alexa+ voice/presentation | Simulated and visibly labeled |
+| MCP 2025-11-25 HTTP gateway | Real |
+| Nexus MCP stdio product runtime | Real and mandatory for live mode |
+| Firefox graph/BiDi execution | Live through Nexus |
+| Windows UIA execution | Live through Nexus |
+| Amazon Bedrock planning | Optional; claim only when the UI badge proves it |
+| Chrome/CDP | Implemented in Nexus, not shown in this take |
+| macOS/Android/iOS | Roadmap, never presented as live |
 
-## Setup
+## Repositories and prerequisites
 
-```bash
+The workspace contains sibling repositories:
+
+- `nexus-alexa/` — Alexa experience, HTTP MCP gateway, orchestration, demo fixture, and evidence.
+- `_research_awg/` — the genuine Nexus Semantic product runtime.
+
+Requirements: Windows, Node.js 24.x or 26+, npm, pnpm 11+, Firefox, geckodriver, PowerShell, and classic Notepad. AWS credentials/model access are optional.
+
+## Validate
+
+```powershell
+# Alexa repository
 npm install
-npm test        # 26 hermetic tests, no browser/driver required
-npm run build   # type-check + emit dist/ (copies the web client UI)
+npm test
+npm run typecheck
+npm run build
+npm audit --audit-level=moderate
+
+# Nexus repository
+pnpm --dir ..\_research_awg install
+pnpm --dir ..\_research_awg run build
+pnpm --dir ..\_research_awg exec vitest run test/server/mcp-server.test.ts test/desktop/mcp-desktop-tools.test.ts
 ```
 
-## Run
+The committed `demo/nexus-graph` is not hand-authored Alexa metadata. It is the output of a clean Nexus crawl, read live by the reveal panel at serve time: 7 pages, 408 semantic nodes, 143 capabilities, 50 interaction states, 5,800 relationships, and 22 design tokens. Regenerate it with:
 
-Start the MCP Streamable HTTP server **and** the simulated Alexa+ web client:
-
-```bash
-npx tsx src/cli.ts serve --client
-# MCP Streamable HTTP (2025-11-25) at http://127.0.0.1:8391/mcp
-# Alexa+ simulator at http://127.0.0.1:8392/
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/prepare-nexus-graph.ps1
 ```
 
-Without extra flags every substrate is **simulated** (clearly labelled in the UI) — a quick way
-to see the interaction model and the MCP server. To run the **real live demo** (Firefox web +
-Windows native desktop), use the `--web-app ... --desktop` invocation in
-[Live substrates](#live-substrates-real-firefox--real-windows-the-cross-substrate-crossing) below.
+## Run the hidden-engine demo
 
-### Headless demo / rehearsal (no browser)
+Close unrelated focus-stealing apps, then:
 
-```bash
-npx tsx src/cli.ts demo "Alexa, get me set up for the Acme review at 3" --confirm
-npx tsx src/cli.ts rehearse --runs 5 --required 5   # reliability gate
-npx tsx src/cli.ts capabilities                      # full reach, live vs coming
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start-hidden-engine-demo.ps1
 ```
 
-### Talk to the MCP server directly (prove the transport)
+Open `http://127.0.0.1:8392/`. The primary interface says **Alexa+ Action Mode**, shows real application outcomes, and identifies the middle layer only as **Execution engine**. Select **How did Alexa do that?** when it is time to reveal Nexus.
 
-```bash
-curl http://127.0.0.1:8391/healthz          # {"ok":true,"protocol":"2025-11-25"}
+Equivalent manual gateway command:
+
+```powershell
+npx tsx src/cli.ts serve --client `
+  --nexus-root ..\_research_awg `
+  --graph .\demo\nexus-graph `
+  --target-app http://127.0.0.1:7312 `
+  --desktop
 ```
 
-Any MCP 2025-11-25 client can `initialize → tools/list → tools/call` against
-`http://127.0.0.1:8391/mcp`. A bearer token can be required with `--token <secret>`.
+The old `--web-app` direct-driver mode intentionally fails. There is no live bypass around Nexus.
 
-## Live substrates: real Firefox + real Windows (the cross-substrate crossing)
+## Proof commands
 
-Two substrates run **genuinely live** in this demo, both driven through NexusOS Semantic:
+With the demo SaaS on port 7312, fresh geckodriver on 4444, and Notepad open:
 
-- **Firefox (web)** — `src/nexus/firefox.ts` drives a real Firefox via geckodriver using Nexus's
-  own WebDriver BiDi client: real semantic reads, real clicks on the app's own controls, design-
-  token extraction, and verification by re-reading the app's state.
-- **Windows (native desktop)** — `src/nexus/windows.ts` operates a real native app (classic
-  Notepad) using **only** Nexus's shipped Windows UIA capabilities (list / scrape / focus /
-  click / type). It targets the editor element the Nexus way (scrape for the element's geometry,
-  click it, then type) and verifies via Nexus's own scrape read-back (the native unsaved-changes
-  state), not a UI self-report.
-
-One spoken request crosses **from the web app into the native desktop app** through the same
-semantic execution architecture — the core Nexus thesis.
-
-```bash
-# 1. geckodriver (BiDi origin allowlist) + Firefox installed
-geckodriver --port 4444 --allow-origins http://127.0.0.1:9222
-
-# 2. the NexusOS Semantic demo SaaS
-node path/to/nexusos-semantic/demo/saas/server.cjs   # serves http://127.0.0.1:7311
-
-# 3. serve with BOTH real substrates: Firefox (web) + Windows (native)
-npx tsx src/cli.ts serve --client --web-app http://127.0.0.1:7311 --desktop
-#   firefox: real   windows: real   (chrome/macos/android/ios: simulated / roadmap)
+```powershell
+npx tsx scripts/live-firefox.ts
+npx tsx scripts/live-firefox-full.ts
+npx tsx scripts/live-windows.ts
+npx tsx scripts/live-combined.ts
+powershell -ExecutionPolicy Bypass -File scripts/reliability-gate.ps1 -Runs 5
 ```
 
-In the client, ask *"set me up for the Acme review"* — Nexus reads the web app, extracts its real
-design tokens, files a ticket, reads the admin-only view, **pauses at a destructive control for
-confirmation**, switches the theme to dark, and then **writes the review brief into the real
-native Windows editor** — verifying each step.
-
-### Proofs (real, not hermetic)
-```bash
-npx tsx scripts/live-firefox-full.ts http://127.0.0.1:7311   # Firefox substrate
-npx tsx scripts/live-windows.ts                              # Windows native substrate
-npx tsx scripts/live-combined.ts http://127.0.0.1:7311       # the full Firefox -> Windows crossing
-powershell -File scripts/reliability-gate.ps1 -Runs 5        # 5x clean, reset between runs
-```
-
-## Bringing real Nexus substrates online
-
-The system is designed so real Nexus functionality **just connects** — no changes to the
-orchestrator, planner, client, or transport. Substrates are simulated by default and clearly
-labeled; mark a substrate `real` and it is served by a live Nexus MCP server.
-
-```bash
-# Option A — env
-export NEXUS_ALEXA_REAL="firefox"
-export NEXUS_CMD="nexus"
-export NEXUS_ARGS="serve --graph ./my-crawl"
-npx tsx src/cli.ts serve --client
-
-# Option B — config file (see nexus-alexa.config.example.json)
-export NEXUS_ALEXA_CONFIG="./nexus-alexa.config.json"
-npx tsx src/cli.ts serve --client
-```
-
-Each substrate reports its backing (`real` / `simulated`) on startup and in the web client,
-so the demo is always truthful about what runs live.
+The combined proof requires exactly one Nexus child process and prints `NEXUS-ONLY CROSS-SUBSTRATE DEMO PROVEN` only when all five web steps, the Windows step, confirmation, and verification pass.
 
 ## Architecture
 
-| Module | Responsibility |
+| Path | Responsibility |
 |---|---|
-| `src/mcp/http.ts` | MCP 2025-11-25 Streamable HTTP server (Origin/DNS-rebind protection, localhost bind, bearer auth, protocol negotiation) |
-| `src/mcp/server.ts` | Registers the Nexus tool surface (`nexus_query/read/capabilities/invoke/verify`) |
-| `src/nexus/security.ts` | Security tiers `DISCOVER/READ/PROPOSE/EXECUTE/CONFIRM` + the gate (mirrors NexusOS Semantic) |
-| `src/nexus/substrate.ts` | `NexusSubstrate` contract + deterministic `FakeNexusSubstrate` |
-| `src/nexus/firefox.ts` | Live **Firefox** substrate (Nexus BiDi client, vendored) |
-| `src/nexus/windows.ts` | Live **Windows** native substrate (Nexus UIA bridge, vendored) |
-| `src/nexus/real.ts` | `RealNexusSubstrate` — binds to a live Nexus MCP server |
-| `src/nexus/composite.ts` | Per-substrate real/simulated routing with truthful backing labels |
-| `src/nexus/manifest.ts` | Capability list with honest readiness: `live-demo` / `implemented` / `roadmap` |
-| `vendor/nexus/` | Vendored, unmodified NexusOS Semantic subset (Apache-2.0) for reproducibility |
-| `src/plan.ts` | Objective → ordered cross-substrate plan (LLM/Bedrock can slot in behind `PlanBuilder`) |
-| `src/orchestrator.ts` | Executes a plan with per-step verification + CONFIRM handling; emits live events |
-| `src/client/` | Simulated Alexa+ web client (voice, confirmation cards, execution visualizer) |
-| `src/rehearse.ts` | Reliability harness (N clean runs with deterministic reset) |
+| `src/client/` | Simulated Alexa+ UX; no application automation |
+| `src/mcp/http.ts` | Required self-hosted MCP 2025-11-25 Streamable HTTP gateway |
+| `src/orchestrator.ts` | Ordered UX flow and confirmation handoff |
+| `src/nexus/real.ts` | Thin translator to one genuine Nexus MCP process |
+| `src/nexus/build.ts` | Enforces one shared runtime; no direct live adapters |
+| `demo/nexus-graph/` | Committed Nexus crawl artifact |
+| `_research_awg/src/server/mcp-server.ts` | Nexus graph/live/desktop MCP tools |
+| `_research_awg/src/server/invoke.ts` | Nexus capability resolution, safety gate, and BiDi invocation |
+| `_research_awg/src/desktop/windows/` | Nexus Windows UIA substrate and exact text verification |
 
-## Safety model
+Offline fake substrates remain only for labeled hermetic tests and rehearsal. They are not evidence for live claims.
 
-Every capability invocation — including native desktop/mobile kinetics — is routed through
-the tier gate **before** any substrate contact. `CONFIRM`-tier actions (matched by destructive
-verbs or billing/payment/admin keywords) are blocked unless explicitly confirmed; the client
-surfaces this as a spoken confirmation card.
+## Evidence
 
-## Note on the Alexa+ interface
-
-Per the hackathon rules, the Alexa+ experience is **simulated** in this web app. All Nexus tool
-calls run over a **real** MCP 2025-11-25 Streamable HTTP server. Readiness is labeled honestly:
-`live-demo` capabilities (Firefox web + the Windows native brief) execute for real on camera;
-`implemented` (Chrome/CDP) ships in Nexus but is not stood up in the recorded demo; `roadmap`
-(macOS/Android/iOS) connects through the same seam as Nexus lands it and is never shown as working.
+See `docs/hackathon/READINESS-EVIDENCE.md`, `DEMO-RUNBOOK.md`, and `FRICTION-LOG.md`. The evidence ledger distinguishes product tests, Nexus-only live proofs, and external publication/account tasks.
 
 ## License
 
-Apache-2.0. See [`LICENSE`](LICENSE).
+Apache-2.0. See `LICENSE` and `NOTICE`. Nexus Semantic is maintained as the separate in-house product repository at `../_research_awg` / `nexusos-systems/nexusos-semantic`.

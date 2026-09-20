@@ -1,54 +1,41 @@
-/**
- * Live proof: the Windows substrate operates a REAL native app (classic Notepad) using ONLY
- * NexusOS Semantic's shipped Windows UIA capabilities (list / scrape / focus / click / type),
- * and verifies via a real signal Nexus reads back from the substrate.
- *
- * Proof shape:  ACTION (Nexus focus+click-element+type) -> EXPECTED (native window dirty) ->
- *               OBSERVED (Nexus scrape/list) -> PASS
- *
- * Run:  npx tsx scripts/live-windows.ts
- * Preconditions: Windows, powershell.exe, classic C:\Windows\System32\notepad.exe.
- */
-
-import { WindowsSubstrate } from "../src/nexus/windows.js";
+/** Proves native text replacement and exact UIA read-back through a genuine Nexus MCP process. */
+import { resolve } from "node:path";
+import { buildSubstrateAsync } from "../src/nexus/build.js";
 
 async function main() {
-  const win = new WindowsSubstrate();
-  let ok = true;
-  const check = (label: string, pass: boolean, detail?: unknown) => {
-    ok = ok && pass;
-    console.log(`  ${pass ? "OK" : "XX"} ${label}${detail !== undefined ? " " + JSON.stringify(detail) : ""}`);
-  };
-
-  console.log("[win] launching/finding native Notepad via Nexus desktop_list_windows ...");
-  await win.connect();
-
-  // Baseline: read the native state through Nexus before acting.
-  const before = await win.read("windows", "windows.brief");
-  console.log("  baseline:", JSON.stringify(before?.state));
-
-  const brief = "Acme review brief - prepared by Nexus. Renewal Q4; wants SSO + audit log.";
-  const inv = await win.invoke({ substrate: "windows", capabilityId: "populate_brief", inputs: { text: brief } });
-  check("invoke populate_brief (tier-gated)", inv.ok, { tier: inv.tier });
-
-  // OBSERVED via Nexus scrape/list: the native window is now dirty (unsaved-changes marker).
-  const ver = await win.verify({
-    substrate: "windows",
-    capabilityId: "populate_brief",
-    axId: "windows.brief",
-    expected: { dirty: true, hasEditor: true },
+  const nexusRoot = resolve(process.argv[2] ?? "../_research_awg");
+  const graph = resolve(process.argv[3] ?? "demo/nexus-graph");
+  const baseUrl = process.argv[4] ?? "http://127.0.0.1:7312";
+  const text = "Native review brief written and read back through the Nexus desktop runtime.";
+  const built = await buildSubstrateAsync({
+    real: ["windows"],
+    nexus: {
+      command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+      args: ["run", "nexus", "serve", "--no-bidi", "--graph", graph, "--desktop"],
+      cwd: nexusRoot,
+      baseUrl,
+      desktopProcessName: "notepad",
+    },
   });
-  check("verify native window dirty via Nexus scrape", ver.pass, ver.observed);
-
-  const bad = await win.invoke({ substrate: "windows", capabilityId: "nope" });
-  check("unknown capability fails cleanly", !bad.ok, { reason: bad.reason });
-
-  console.log(ok ? "\nLIVE WINDOWS SUBSTRATE PROVEN (Nexus-only)" : "\nSOME CHECKS FAILED");
-  await win.close();
-  process.exit(ok ? 0 : 1);
+  try {
+    const before = await built.substrate.read("windows", "windows.brief");
+    const invoke = await built.substrate.invoke({
+      substrate: "windows",
+      capabilityId: "populate_brief",
+      inputs: { text },
+    });
+    const verification = await built.substrate.verify({
+      substrate: "windows",
+      capabilityId: "populate_brief",
+      axId: "windows.brief",
+      expected: { value: text },
+    });
+    console.log(JSON.stringify({ before: before?.state, invoke, verification }, null, 2));
+    const pass = invoke.ok && verification.pass && built.closables.length === 1;
+    console.log(pass ? "NEXUS WINDOWS RUNTIME PROVEN" : "NEXUS WINDOWS PROOF FAILED");
+    process.exitCode = pass ? 0 : 1;
+  } finally {
+    for (const closable of built.closables) await closable.close().catch(() => undefined);
+  }
 }
-
-main().catch((err) => {
-  console.error("[win] error:", err);
-  process.exit(1);
-});
+main().catch((error) => { console.error(error); process.exit(1); });

@@ -1,88 +1,138 @@
-# Demo Runbook
+# Nexus-Only Demo and Release Runbook
 
-Deterministic steps to reproduce the demo reliably (and to record the video). Treat reliability
-as part of the product: do a clean run before recording.
+The live submission is valid only when every application operation crosses one genuine Nexus MCP process. Offline fakes are useful for tests but are not live evidence.
 
-## Prerequisites
-- Node.js ≥ 24, npm.
-- Firefox installed (any standard install location).
-- geckodriver installed — on `PATH`, or point to it via the `GECKODRIVER` env var / the
-  `-Geckodriver` arg of the reliability gate. Get it from
-  https://github.com/mozilla/geckodriver/releases.
-- A target web app. The NexusOS Semantic demo SaaS works out of the box (`demo/saas/server.cjs`).
-- Windows with PowerShell (for the native Windows substrate). Classic `notepad.exe` is the target.
-- Optional (AWS Builder): AWS credentials + a Bedrock model enabled in your region.
+## 1. Preflight both repositories
 
-## 1. Start geckodriver (clean)
-Kill any stray instance first (a leftover session blocks new ones — see FRICTION-LOG F-005), then:
 ```powershell
-Get-Process geckodriver -ErrorAction SilentlyContinue | Stop-Process -Force
-# geckodriver must be on PATH (or use its full path here)
-geckodriver --port 4444 --allow-origins http://127.0.0.1:9222
-# verify: GET http://127.0.0.1:4444/status -> {"value":{"ready":true}}
+node --version             # 24.x or 26+
+pnpm --version             # 11+
+Get-Command geckodriver
+Test-Path C:\Windows\System32\notepad.exe
+
+npm install
+npm test
+npm run typecheck
+npm run build
+npm audit --audit-level=moderate
+
+pnpm --dir ..\_research_awg install
+pnpm --dir ..\_research_awg run build
 ```
 
-## 2. Start the demo web app (the live target)
+## 2. Verify or regenerate the Nexus graph
+
+The committed graph should inspect as 7 loaded pages, 408 AX nodes, 143 capabilities, 50 states, 5,800 edges, and no failed pages/extractor failures.
+
 ```powershell
-node <nexusos-semantic>/demo/saas/server.cjs   # serves http://127.0.0.1:7311
+pnpm --dir ..\_research_awg run nexus -- inspect --graph ..\nexus-alexa\demo\nexus-graph --json
+
+# Regenerate after changing the fixture or Nexus extraction:
+powershell -ExecutionPolicy Bypass -File scripts/prepare-nexus-graph.ps1
 ```
 
-## 3. (Optional) enable Bedrock planning for the AWS Builder story
-```powershell
-$env:AWS_REGION = "us-east-1"
-$env:AWS_PROFILE = "<your-profile>"          # or AWS_ACCESS_KEY_ID / _SECRET_ACCESS_KEY
-$env:NEXUS_ALEXA_BEDROCK_MODEL = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-```
-Without these, the demo runs on the deterministic planner (labeled truthfully).
+The graph must contain `#theme-toggle` as EXECUTE and `#btn-sensitive-signout` as CONFIRM.
 
-## 4. Start Nexus-for-Alexa+ (MCP server + simulator, Firefox + Windows both real)
-```powershell
-npx tsx src/cli.ts serve --port 8391 --client --client-port 8392 --web-app http://127.0.0.1:7311 --desktop
-# expect:
-#   MCP Streamable HTTP (2025-11-25) at http://127.0.0.1:8391/mcp
-#   firefox: real   windows: real   (chrome/macos/android/ios: simulated)
-#   planner: Amazon Bedrock (…)  OR  deterministic (…)
-```
-`--desktop` binds the real Windows substrate (Nexus UIA) that operates classic Notepad.
+## 3. Clean live state
 
-## 5. Run the demo
-Open `http://127.0.0.1:8392/`. Arrange the window so the real Firefox window AND the Notepad
-window Nexus controls are visible. Speak or type: **"Alexa, set me up for the Acme review."**
+Only do this on the dedicated recording machine after confirming no user work is open:
 
-Expected — one request crossing web → native, verified at each step:
-1. Firefox: read theme → 2. extract design tokens (swatches) → 3. file a ticket →
-4. read admin-only view → 5. **CONFIRM** on "Delete workspace" (approve) → 6. switch to dark →
-7. **Windows: the review brief is typed into the real native Notepad** (title shows the unsaved
-`*` marker Nexus reads back). Outro: all steps ✅.
-
-## 6. Pre-record reliability gate (run the ACTUAL final demo, not just hermetic)
-```powershell
-# hermetic (no browser/desktop):
-npm test                                                     # 26 passing
-
-# live substrate proofs:
-npx tsx scripts/live-firefox-full.ts http://127.0.0.1:7311   # FULL LIVE WEB STORY PROVEN
-npx tsx scripts/live-windows.ts                              # LIVE WINDOWS SUBSTRATE PROVEN
-npx tsx scripts/live-combined.ts http://127.0.0.1:7311       # FIREFOX -> WINDOWS ... PROVEN
-
-# the gate: 5 consecutive clean runs of the combined demo, full reset between each:
-powershell -ExecutionPolicy Bypass -File scripts/reliability-gate.ps1 -Runs 5   # expect CLEAN RUNS: 5/5
-```
-
-## 7. Reset between takes (IMPORTANT for reliability)
-A stale geckodriver/Firefox causes "Failed to decode response from marionette". Between every
-run, fully reset:
 ```powershell
 Get-Process geckodriver, firefox, notepad -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep 2
-# then restart geckodriver (step 1) and re-serve (step 4)
+Start-Sleep -Seconds 2
 ```
-The demo app has no backend delete, so the "Delete workspace" beat is safe and repeatable; theme
-resets on page reload; Notepad opens fresh each run. `scripts/reliability-gate.ps1` automates this
-reset loop.
+
+Close notifications, overlays, remote-control software, and unrelated focus-stealing automation.
+
+## 4. Optional Bedrock
+
+```powershell
+$env:AWS_REGION = "us-east-1"
+$env:AWS_PROFILE = "<your-profile>"
+$env:NEXUS_ALEXA_BEDROCK_MODEL = "<enabled-model-or-inference-profile-id>"
+```
+
+Use Bedrock narration only if the successful run badge proves Bedrock planned it.
+
+## 5. Start the hidden-engine experience
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start-hidden-engine-demo.ps1
+```
+
+This starts the bundled target on 7312, geckodriver on 4444, a fresh Notepad window, the Alexa HTTP MCP gateway on 8391, the simulator on 8392, and exactly one child Nexus MCP stdio process serving both Firefox and Windows.
+
+Manual equivalent:
+
+```powershell
+$env:PORT = "7312"
+node demo/saas/server.cjs
+
+geckodriver --port 4444 --host 127.0.0.1 --allow-origins http://127.0.0.1:9222
+Start-Process C:\Windows\System32\notepad.exe
+
+npx tsx src/cli.ts serve --client `
+  --nexus-root ..\_research_awg `
+  --graph .\demo\nexus-graph `
+  --target-app http://127.0.0.1:7312 `
+  --desktop
+```
+
+Expected: Firefox real, Windows real, other substrates simulated/roadmap. The old `--web-app` direct mode must fail.
+
+## 6. Execute the take
+
+Open `http://127.0.0.1:8392/` and arrange it beside Firefox and Notepad. Ask **“Alexa, set me up for the Acme review.”**
+
+Expected six-step run:
+
+1. semantic graph query;
+2. W3C DTCG token export;
+3. live theme read;
+4. graph-resolved theme invocation and dark-state verification;
+5. CONFIRM-tier sign-out dialog invocation after approval; and
+6. Nexus desktop replacement plus exact UIA text read-back.
+
+After the result lands, click **How did Alexa do that?** for the Nexus reveal.
+
+## 7. Nexus-only proof gate
+
+With the target app on 7312:
+
+```powershell
+npx tsx scripts/live-firefox.ts
+npx tsx scripts/live-firefox-full.ts
+npx tsx scripts/live-windows.ts
+npx tsx scripts/live-combined.ts
+powershell -ExecutionPolicy Bypass -File scripts/reliability-gate.ps1 -Runs 5
+```
+
+Accept only:
+
+- `NEXUS GRAPH INVOCATION PROVEN`
+- `NEXUS WEB RUNTIME PROVEN`
+- `NEXUS WINDOWS RUNTIME PROVEN`
+- `NEXUS-ONLY CROSS-SUBSTRATE DEMO PROVEN`
+- `CLEAN RUNS: 5/5`
+
+Record outputs and date in `READINESS-EVIDENCE.md` on the final commit/machine.
+
+## 8. Recording and submission gates
+
+- Alexa simulated label visible; Firefox/Windows live labels visible.
+- One coherent six-step run, under 3:00.
+- Nexus is not named until the deliberate reveal.
+- Theme, safety pause, and native exact read-back are visible.
+- Public repositories and video open logged out.
+- Apache-2.0 is detected.
+- Devpost preview contains final links/tracks and matches `SUBMISSION.md`.
+- Re-run both repository builds and the Alexa test suite on the pushed commits.
 
 ## Troubleshooting
-- `Session already started` / `ready:false` → kill and restart geckodriver (F-005).
-- BiDi WS rejected → ensure `--allow-origins http://127.0.0.1:9222` (F-006).
-- Bedrock access error → the app falls back to deterministic automatically; enable the model in
-  the Bedrock console or unset AWS creds for the recording.
+
+- Missing required tool at startup: rebuild `_research_awg`; do not bypass Nexus.
+- `Session already started`: reset Firefox/geckodriver and start fresh.
+- Graph page rejected: target URL must exactly match the graph’s `http://127.0.0.1:7312` origin.
+- Nexus graph capability missing: regenerate the graph; never hard-code a direct click in Alexa.
+- Desktop precondition/focus mismatch: reset Notepad and rerun; Nexus intentionally fails closed.
+- Bedrock fallback: fix credentials/model access or use deterministic narration.

@@ -23,6 +23,7 @@ import {
 import { BedrockPlanBuilder } from "../plan-bedrock.js";
 import { Orchestrator, httpToolCaller, type OrchestratorEvent } from "../orchestrator.js";
 import { CAPABILITY_MANIFEST } from "../nexus/manifest.js";
+import type { Substrate } from "../types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -34,6 +35,8 @@ export interface ClientServerOptions {
   bearerToken?: string;
   /** Per-substrate backing ("real" | "fake") for truthful live-vs-simulated labels. */
   backing?: Record<string, "real" | "fake">;
+  /** Live graph statistics read from the trusted Nexus crawl artifact (for the reveal panel). */
+  engineStats?: Record<string, string | number>;
   /** Enable the Bedrock (AWS Builder) planner when AWS credentials are present. Default true. */
   useBedrock?: boolean;
 }
@@ -58,13 +61,28 @@ export async function startClientServer(
 ): Promise<RunningClientServer> {
   const host = opts.host ?? "127.0.0.1";
   const html = readFileSync(join(__dirname, "ui.html"), "utf8");
-  const deterministic = new CompositePlanBuilder([
-    new LiveWebPlanBuilder(),
-    new ScenarioPlanBuilder(),
-  ]);
+  const backing = opts.backing ?? {};
+  const firefoxLive = backing.firefox === "real";
+  const windowsLive = backing.windows === "real";
+  const realSubstrates = Object.entries(backing)
+    .filter(([, mode]) => mode === "real")
+    .map(([substrate]) => substrate as Substrate);
+
+  // The deterministic plan must match the adapters actually backing this run. In the default
+  // all-simulated quick start, use the seeded scenario contract; only select direct Firefox
+  // bindings when Firefox is genuinely live. A partial Firefox-only run omits the Windows step.
+  const deterministic = new CompositePlanBuilder(
+    firefoxLive
+      ? [new LiveWebPlanBuilder({ includeWindows: windowsLive }), new ScenarioPlanBuilder({ windowsLive })]
+      : [new ScenarioPlanBuilder({ windowsLive })],
+  );
+  // Do not label a fake-substrate run as Bedrock-planned: its seeded capability IDs intentionally
+  // differ from direct live adapters. Ground Bedrock only in substrates that are live right now.
   const bedrock =
-    (opts.useBedrock ?? true) && BedrockPlanBuilder.credentialsPresent()
-      ? new BedrockPlanBuilder()
+    (opts.useBedrock ?? true) &&
+    realSubstrates.length > 0 &&
+    BedrockPlanBuilder.credentialsPresent()
+      ? new BedrockPlanBuilder({ substrates: realSubstrates })
       : null;
   const planner = new AsyncCompositePlanBuilder(bedrock, deterministic);
 
@@ -90,6 +108,12 @@ export async function startClientServer(
       if (url.pathname === "/api/backing") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify(opts.backing ?? {}));
+        return;
+      }
+
+      if (url.pathname === "/api/enginestats") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(opts.engineStats ?? {}));
         return;
       }
 

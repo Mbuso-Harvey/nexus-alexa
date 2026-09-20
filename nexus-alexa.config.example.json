@@ -1,10 +1,20 @@
 {
-  "_comment": "Bring Nexus substrates online here. Substrates listed in `real` are served by a live Nexus MCP server (launched via `nexus`); everything else is simulated and clearly labeled. Copy to nexus-alexa.config.json and set NEXUS_ALEXA_CONFIG or pass --config.",
-  "real": ["firefox"],
+  "_comment": "One genuine Nexus MCP stdio process owns every live substrate. The Alexa layer has no direct Firefox or Windows execution path.",
+  "real": ["firefox", "windows"],
   "nexus": {
-    "command": "nexus",
-    "args": ["serve", "--graph", "./my-crawl"],
+    "command": "pnpm.cmd",
+    "args": [
+      "run",
+      "nexus",
+      "serve",
+      "--graph",
+      "C:\\absolute\\path\\to\\nexus-alexa\\demo\\nexus-graph",
+      "--desktop"
+    ],
+    "cwd": "C:\\absolute\\path\\to\\nexusos-semantic",
+    "baseUrl": "http://127.0.0.1:7312",
+    "desktopProcessName": "notepad",
     "env": {}
   },
-  "simulated": ["chrome", "windows", "macos", "android", "ios"]
+  "simulated": ["chrome", "macos", "android", "ios"]
 }

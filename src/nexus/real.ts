@@ -1,20 +1,9 @@
 /**
- * RealNexusSubstrate — binds the Alexa gateway to a running NexusOS Semantic MCP server.
+ * Sole live execution adapter for the Alexa experience.
  *
- * This is the adapter that "just connects" as the user brings more Nexus functionality
- * online. It speaks to Nexus over its native MCP transport (stdio today; the same client
- * works if Nexus later exposes Streamable HTTP) using the official MCP client, and maps
- * our semantic contract (query / read / capabilities / invoke / verify) onto Nexus's real
- * tools (graph_query, graph_tool, graph_act, graph_invoke, graph_explain).
- *
- * Because the contract is stable, nothing upstream (orchestrator, planner, Alexa client,
- * Streamable HTTP gateway) changes when we flip from FakeNexusSubstrate to this. And because
- * the mapping is thin, new Nexus capabilities appear automatically through nexus_capabilities.
- *
- * NOTE: Nexus's graph tools operate on a single active web (BiDi) graph in the current build;
- * the `substrate` argument is carried through for forward-compatibility with Nexus's
- * desktop / mobile / chrome tools as they are wired. Until a given substrate is live in
- * Nexus, prefer FakeNexusSubstrate for that substrate (see CompositeSubstrate).
+ * One instance owns one official MCP stdio connection to one Nexus runtime process. Firefox
+ * graph operations and Windows UIA operations share that process. The Alexa layer never opens a
+ * BiDi session, invokes PowerShell/UIA, or mutates an application directly.
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -31,16 +20,21 @@ import type {
 import type { NexusSubstrate } from "./substrate.js";
 
 export interface RealNexusOptions {
-  /** Command to launch the Nexus MCP server (stdio). e.g. { command: "nexus", args: ["serve", ...] }. */
+  /** Command that launches the genuine Nexus MCP stdio runtime. */
   command: string;
   args?: string[];
   env?: Record<string, string>;
-  /** Which substrate this adapter represents (default "firefox"). */
-  substrate?: Substrate;
+  cwd?: string;
+  /** Substrates exposed by this one runtime process. */
+  substrates: Substrate[];
+  /** Canonical origin already present in the trusted Nexus graph. */
+  baseUrl: string;
+  /** Native process selected through Nexus desktop_list_windows. */
+  desktopProcessName?: string;
 }
 
 function parse(raw: any): any {
-  const text = raw?.content?.find?.((c: any) => c.type === "text")?.text;
+  const text = raw?.content?.find?.((part: any) => part.type === "text")?.text;
   if (typeof text === "string") {
     try {
       return JSON.parse(text);
@@ -51,75 +45,247 @@ function parse(raw: any): any {
   return raw;
 }
 
+function normalizeText(value: unknown): string {
+  return String(value ?? "").replace(/\r\n?/g, "\n").replace(/\n+$/g, "");
+}
+
+function flattenDtcg(
+  value: unknown,
+  prefix = "",
+  output: Record<string, string | number | boolean | null> = {},
+): Record<string, string | number | boolean | null> {
+  if (!value || typeof value !== "object") return output;
+  const node = value as Record<string, unknown>;
+  if ("$value" in node && ["string", "number", "boolean"].includes(typeof node.$value)) {
+    output[prefix] = node.$value as string | number | boolean;
+    return output;
+  }
+  for (const [key, child] of Object.entries(node)) {
+    if (!key.startsWith("$")) flattenDtcg(child, prefix ? `${prefix}.${key}` : key, output);
+  }
+  return output;
+}
+
 export class RealNexusSubstrate implements NexusSubstrate {
   private client?: Client;
-  private readonly substrateName: Substrate;
+  private readonly substrates: Substrate[];
+  private readonly baseUrl: string;
+  private readonly desktopProcessName: string;
+  private capabilityCache?: any[];
 
   constructor(private readonly opts: RealNexusOptions) {
-    this.substrateName = opts.substrate ?? "firefox";
+    this.substrates = [...new Set(opts.substrates)];
+    this.baseUrl = opts.baseUrl.replace(/\/$/, "");
+    this.desktopProcessName = (opts.desktopProcessName ?? "notepad").toLowerCase();
   }
 
-  /** Connect (lazily) to the Nexus MCP server over stdio. */
   async connect(): Promise<void> {
     if (this.client) return;
-    const client = new Client({ name: "nexus-alexa-bridge", version: "0.1.0" });
+    const client = new Client({ name: "alexa-nexus-bridge", version: "0.1.0" });
     const transport = new StdioClientTransport({
       command: this.opts.command,
       args: this.opts.args ?? [],
       env: this.opts.env,
+      cwd: this.opts.cwd,
+      stderr: "inherit",
     });
     await client.connect(transport);
     this.client = client;
+
+    const listed = await client.listTools();
+    const names = new Set(listed.tools.map((tool) => tool.name));
+    const required: string[] = [];
+    if (this.substrates.includes("firefox")) {
+      required.push(
+        "graph_query",
+        "graph_tool",
+        "graph_invoke",
+        "graph_live_read",
+        "export_dtcg_tokens",
+      );
+    }
+    if (this.substrates.includes("windows")) {
+      required.push("desktop_list_windows", "desktop_read_text", "desktop_replace_text");
+    }
+    const missing = required.filter((name) => !names.has(name));
+    if (missing.length) {
+      await client.close().catch(() => undefined);
+      this.client = undefined;
+      throw new Error(`Nexus runtime is missing required tools: ${missing.join(", ")}`);
+    }
   }
 
   async close(): Promise<void> {
     await this.client?.close().catch(() => undefined);
     this.client = undefined;
+    this.capabilityCache = undefined;
   }
 
   private async tool(name: string, args: Record<string, unknown>): Promise<any> {
     if (!this.client) await this.connect();
-    return this.client!.callTool({ name, arguments: args });
+    const raw = await this.client!.callTool({ name, arguments: args });
+    const value = parse(raw);
+    if (raw?.isError) {
+      throw new Error(value?.raw ?? value?.error ?? `${name} failed`);
+    }
+    return value;
+  }
+
+  private page(pathname = "/index.html"): string {
+    return `${this.baseUrl}${pathname}`;
+  }
+
+  private async productCapabilities(): Promise<any[]> {
+    if (!this.capabilityCache) {
+      const result = await this.tool("graph_tool", {});
+      this.capabilityCache = result?.capabilities ?? result?.tools ?? [];
+    }
+    return this.capabilityCache!;
+  }
+
+  private async resolveWebCapability(kind: "theme" | "sensitive"): Promise<any> {
+    const capabilities = await this.productCapabilities();
+    const pageId = `page:${this.page()}`;
+    const onPage = capabilities.filter((capability) => capability.pageId === pageId);
+    const exactSelector = kind === "theme" ? "#theme-toggle" : "#btn-sensitive-signout";
+    const match =
+      onPage.find((capability) => capability.binding?.selector === exactSelector) ??
+      onPage.find((capability) =>
+        kind === "theme" ? capability.name === "toggle-theme" : capability.name === "sign-out",
+      );
+    if (!match) throw new Error(`Nexus graph has no ${kind} capability for ${pageId}`);
+    return match;
+  }
+
+  private async liveRead(selector: string): Promise<any> {
+    return this.tool("graph_live_read", { pageUrl: this.page(), selector });
+  }
+
+  private async desktopWindow(): Promise<any> {
+    const windows = await this.tool("desktop_list_windows", {});
+    const list = Array.isArray(windows) ? windows : windows ? [windows] : [];
+    const match = list.find((window) =>
+      String(window.processName ?? "").toLowerCase().includes(this.desktopProcessName),
+    );
+    if (!match) {
+      throw new Error(
+        `Nexus could not find a ${this.desktopProcessName} window; open the native editor before the run`,
+      );
+    }
+    return match;
   }
 
   async availableSubstrates(): Promise<Substrate[]> {
-    // Nexus's web graph is the reachable substrate for this adapter instance.
-    return [this.substrateName];
+    return [...this.substrates];
   }
 
   async query(q: GraphQuery): Promise<AxNode[]> {
-    // Map to Nexus graph_query. Prefer role filter; fall back to name contains.
+    if (q.substrate === "windows") {
+      const window = await this.desktopWindow();
+      const result = await this.tool("desktop_scrape_window", { windowId: window.windowId });
+      return [{
+        axId: `windows:${window.windowId}`,
+        role: "window",
+        name: result.title ?? window.title ?? "Native window",
+        state: { elementCount: Number(result.elementCount ?? 0) },
+      }];
+    }
     const where: Record<string, unknown> = {};
     if (q.role) where.role = q.role;
     if (q.find) where.name = q.find;
-    const res = parse(
-      await this.tool("graph_query", { select: "ax-node", where, limit: 50 }),
-    );
-    const hits: any[] = res?.hits ?? res?.nodes ?? res ?? [];
-    return hits.map(nexusNodeToAx);
+    const result = await this.tool("graph_query", { select: "ax-node", where, limit: 50 });
+    const hits: any[] = result?.hits ?? [];
+    return hits.map((hit) => nexusNodeToAx(hit.node ?? hit));
   }
 
-  async read(_substrate: Substrate, axId: string): Promise<AxNode | null> {
-    // graph_explain returns the node + neighborhood; use it as a read.
-    const res = parse(await this.tool("graph_explain", { id: axId }));
-    if (!res || res.isError) return null;
-    const node = res.node ?? res.center ?? res;
-    return node ? nexusNodeToAx(node) : null;
+  async read(substrate: Substrate, axId: string): Promise<AxNode | null> {
+    if (substrate === "windows" && axId === "windows.brief") {
+      const window = await this.desktopWindow();
+      const result = await this.tool("desktop_read_text", { windowId: window.windowId });
+      return {
+        axId,
+        role: "textbox",
+        name: "Native editor",
+        state: {
+          value: normalizeText(result.text),
+          windowId: String(result.windowId ?? window.windowId),
+          method: String(result.method ?? "UIAutomation"),
+        },
+      };
+    }
+    if (substrate !== "firefox") return null;
+
+    if (axId === "nexus.graph") {
+      const result = await this.tool("graph_query", {
+        select: "ax-node",
+        where: {},
+        limit: 50,
+      });
+      return {
+        axId,
+        role: "region",
+        name: "Semantic application graph",
+        state: { nodeCount: Number(result?.hits?.length ?? 0) },
+      };
+    }
+    if (axId === "settings.tokens") {
+      const bundle = await this.tool("export_dtcg_tokens", {});
+      return {
+        axId,
+        role: "region",
+        name: "W3C design tokens",
+        state: flattenDtcg(bundle),
+      };
+    }
+    if (axId === "settings.theme") {
+      const result = await this.liveRead("#theme-toggle");
+      return {
+        axId,
+        role: result.element?.role ?? "button",
+        name: result.element?.name ?? "Toggle theme",
+        state: { value: result.document?.theme ?? "light" },
+      };
+    }
+    if (axId === "safety.dialog") {
+      const result = await this.liveRead("#confirm-signout");
+      return {
+        axId,
+        role: "dialog",
+        name: result.element?.name ?? "Sensitive account confirmation",
+        state: { dialog: result.element?.open === true ? "open" : "closed" },
+      };
+    }
+    return null;
   }
 
-  async capabilities(_substrate: Substrate, find?: string): Promise<Capability[]> {
-    const args: Record<string, unknown> = {};
-    if (find) args.name = find;
-    const res = parse(await this.tool("graph_tool", args));
-    const list: any[] = res?.tools ?? res?.capabilities ?? res ?? [];
-    return list.map((t) => ({
-      capabilityId: t.capabilityId ?? t.id,
-      substrate: this.substrateName,
-      name: t.name ?? t.label ?? "",
-      role: t.role ?? "",
-      tier: (t.security ?? t.tier ?? "READ") as SecurityTier,
-      inputs: t.inputKeys ?? t.inputs,
-    }));
+  async capabilities(substrate: Substrate, find?: string): Promise<Capability[]> {
+    if (substrate === "windows") {
+      const capability: Capability = {
+        capabilityId: "populate_brief",
+        substrate,
+        name: "Replace text in an explicitly selected native editor",
+        role: "textbox",
+        tier: "PROPOSE",
+        inputs: ["text"],
+      };
+      return !find || capability.name.toLowerCase().includes(find.toLowerCase())
+        ? [capability]
+        : [];
+    }
+    const list = await this.productCapabilities();
+    return list
+      .filter((capability) =>
+        find ? String(capability.name ?? "").toLowerCase().includes(find.toLowerCase()) : true,
+      )
+      .map((capability) => ({
+        capabilityId: capability.id,
+        substrate: "firefox" as Substrate,
+        name: capability.name ?? "",
+        role: capability.role ?? "button",
+        tier: (capability.security ?? "READ") as SecurityTier,
+        inputs: Object.keys(capability.inputSchema?.properties ?? {}),
+        location: capability.pageId,
+      }));
   }
 
   async invoke(opts: {
@@ -128,27 +294,94 @@ export class RealNexusSubstrate implements NexusSubstrate {
     inputs?: Record<string, string | number | boolean>;
     confirm?: boolean;
   }): Promise<InvokeResult> {
-    // Nexus graph_invoke gates + executes on the live page. It expects `input` with a
-    // `text` field for text roles; pass inputs through.
-    const res = parse(
-      await this.tool("graph_invoke", {
-        capabilityId: opts.capabilityId,
-        input: opts.inputs ?? {},
-        confirm: opts.confirm,
-      }),
-    );
-    // Nexus returns either an InvokeResult (decision+binding+observe) or a decision-only
-    // ActResult (from graph_act). Normalise both.
-    const decision = res?.decision ?? res;
-    const ok = decision?.ok ?? res?.ok ?? false;
-    const requireConfirm = decision?.requireConfirm ?? res?.requireConfirm ?? false;
-    const tier = (decision?.preview?.tier ?? res?.tier ?? "READ") as SecurityTier;
+    if (opts.substrate === "windows") {
+      if (opts.capabilityId !== "populate_brief") {
+        return {
+          ok: false,
+          requireConfirm: false,
+          reason: `Nexus desktop capability not found: ${opts.capabilityId}`,
+          tier: "READ",
+        };
+      }
+      const text = normalizeText(opts.inputs?.text);
+      if (!text.trim()) {
+        return {
+          ok: false,
+          requireConfirm: false,
+          reason: "populate_brief requires non-empty text",
+          tier: "PROPOSE",
+        };
+      }
+      const window = await this.desktopWindow();
+      const before = await this.tool("desktop_read_text", { windowId: window.windowId });
+      const result = await this.tool("desktop_replace_text", {
+        windowId: window.windowId,
+        expectedCurrentText: normalizeText(before.text),
+        text,
+      });
+      const observedText = normalizeText(result.text);
+      return {
+        ok: result.decision?.ok === true && observedText === text,
+        requireConfirm: Boolean(result.decision?.requireConfirm),
+        reason: observedText === text ? "ok" : "Nexus native read-back did not match requested text",
+        tier: "PROPOSE",
+        observed: {
+          axId: "windows.brief",
+          role: "textbox",
+          name: "Native editor",
+          state: { value: observedText },
+        },
+      };
+    }
+
+    let productCapability: any;
+    if (opts.capabilityId === "set_theme") {
+      const current = await this.read("firefox", "settings.theme");
+      if (current?.state?.value === "dark") {
+        return {
+          ok: true,
+          requireConfirm: false,
+          reason: "already dark",
+          tier: "EXECUTE",
+          observed: current,
+        };
+      }
+      productCapability = await this.resolveWebCapability("theme");
+    } else if (opts.capabilityId === "open_sensitive_dialog") {
+      productCapability = await this.resolveWebCapability("sensitive");
+    } else {
+      return {
+        ok: false,
+        requireConfirm: false,
+        reason: `Nexus web capability not mapped: ${opts.capabilityId}`,
+        tier: "READ",
+      };
+    }
+
+    const result = await this.tool("graph_invoke", {
+      capabilityId: productCapability.id,
+      input: opts.inputs ?? {},
+      confirm: opts.confirm === true,
+    });
+    const decision = result.decision ?? {};
+    const requireConfirm = Boolean(decision.requireConfirm);
+    const ok = result.ok === true && decision.ok !== false && !requireConfirm;
     return {
-      ok: Boolean(ok) && !requireConfirm,
-      requireConfirm: Boolean(requireConfirm),
-      reason: decision?.reason ?? res?.reason ?? (ok ? "ok" : "blocked"),
-      tier,
-      observed: res?.observe ? nexusObserveToAx(res.observe) : null,
+      ok,
+      requireConfirm,
+      reason: ok
+        ? "ok"
+        : result.observe?.error ?? decision.reason ?? "blocked",
+      tier: (result.tier ?? decision.preview?.tier ?? productCapability.security ?? "READ") as SecurityTier,
+      observed: {
+        axId: opts.capabilityId,
+        role: productCapability.role ?? "button",
+        name: productCapability.name ?? opts.capabilityId,
+        state: {
+          url: String(result.observe?.url ?? ""),
+          elapsedMs: Number(result.observe?.elapsedMs ?? 0),
+        },
+      },
     };
   }
 
@@ -158,52 +391,37 @@ export class RealNexusSubstrate implements NexusSubstrate {
     axId: string;
     expected: Record<string, string | number | boolean | null>;
   }): Promise<Verification> {
-    // Semantic re-read via graph_explain and compare expected keys.
     const node = await this.read(opts.substrate, opts.axId);
     const observed = node?.state ?? null;
-    let pass = observed != null;
-    if (observed) {
-      for (const [k, v] of Object.entries(opts.expected)) {
-        if (String(observed[k]) !== String(v)) {
-          pass = false;
-          break;
-        }
-      }
-    }
+    const pass =
+      observed != null &&
+      Object.entries(opts.expected).every(([key, value]) => String(observed[key]) === String(value));
     return {
       capabilityId: opts.capabilityId,
       substrate: opts.substrate,
       expected: opts.expected,
       observed,
       pass,
-      detail: pass ? "observed state matches expected" : "observed state does not match expected",
+      detail: pass
+        ? "Nexus live read-back matches expected state"
+        : "Nexus live read-back does not match expected state",
     };
   }
 }
 
-function nexusNodeToAx(n: any): AxNode {
-  return {
-    axId: n.axId ?? n.id ?? "",
-    role: n.role ?? "",
-    name: n.name ?? n.computedName ?? "",
-    state: n.state ?? extractState(n),
-  };
-}
-
-function nexusObserveToAx(observe: any): AxNode | null {
-  if (!observe) return null;
-  return {
-    axId: observe.axId ?? "",
-    role: observe.role ?? "",
-    name: observe.name ?? "",
-    state: { url: observe.url ?? "", elapsedMs: observe.elapsedMs ?? 0 },
-  };
-}
-
-function extractState(n: any): Record<string, string | number | boolean | null> | undefined {
-  const s: Record<string, string | number | boolean | null> = {};
-  for (const k of ["checked", "expanded", "value", "selected", "disabled", "pressed"]) {
-    if (n[k] != null) s[k] = n[k];
+function nexusNodeToAx(node: any): AxNode {
+  const state: Record<string, string | number | boolean | null> = {};
+  for (const [key, value] of Object.entries(node.states ?? node.state ?? {})) {
+    if (value == null || ["string", "number", "boolean"].includes(typeof value)) {
+      state[key] = value as string | number | boolean | null;
+    }
   }
-  return Object.keys(s).length ? s : undefined;
+  const valueText = node.properties?.valueText;
+  if (valueText != null) state.value = String(valueText);
+  return {
+    axId: node.id ?? node.axId ?? "",
+    role: node.role ?? "",
+    name: node.name ?? node.computedName ?? "",
+    state: Object.keys(state).length ? state : undefined,
+  };
 }

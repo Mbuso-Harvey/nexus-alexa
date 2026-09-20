@@ -1,73 +1,66 @@
-# Demo Video Script (< 3 minutes)
+# Outcome-First Demo Script (target: 2:40–2:55)
 
-**Target:** ~165 seconds usable. Judges are not required to watch past 3:00.
-**Rule we hold:** everything shown as working executes for real. Alexa+ is a labeled simulation;
-Nexus execution (Firefox substrate) is 100% real. "Coming" substrates are shown as roadmap only.
+**Creative rule:** do not say “Nexus” before the reveal. Make judges ask how Alexa did it. Everything shown as live must come from one coherent Nexus-only run.
 
-**Recording setup (see DEMO-RUNBOOK.md):** geckodriver + demo app + `serve --client --web-app`
-running; screen split so the Alexa+ simulator (left) and the real Firefox window (right) are both
-visible; audio = the simulator's spoken responses (or voiceover).
+## 0:00–0:10 — Cold open
 
----
+**Visual:** Alexa+ Action Mode, Firefox, and Notepad visible. No architecture slide.
+**Speak:** **“Alexa, set me up for the Acme review.”**
+**On-screen:** *One request. Watch the software.*
 
-## 0:00–0:14 — The problem (hook)
-**Visual:** Alexa logo/waveform. A phone/laptop with several apps open.
-**VO:** "Alexa can answer questions. But it can't *operate* the apps you already use — every
-integration has to be built for Alexa, one at a time."
-**On-screen text:** *What if Alexa could just… use your software?*
+## 0:10–1:35 — The impossible-looking run
 
-## 0:14–0:24 — The thesis
-**Visual:** Title card → the simulator loads; the "Nexus capability reach" panel shows six
-substrates (web/desktop/mobile) with live/coming dots.
-**VO:** "Nexus Semantic gives Alexa a semantic map and hands for your whole digital world —
-over the Model Context Protocol."
-**On-screen text:** *Alexa+ → Nexus Semantic → real cross-substrate execution*
+Let the execution speak for itself:
 
-## 0:24–1:55 — One request, real execution across web AND native desktop (the core)
-**Setup:** Split screen — the simulator, the real **Firefox** window, and the real **Notepad**
-window all visible. **Speak:** **"Alexa, set me up for the Acme review."**
-Show the visualizer light up `Alexa → Nexus → Firefox → Windows` and the steps run for real:
-1. Firefox: **reads** the current theme (semantic, not a screenshot). *[on-screen: "semantic read"]*
-2. **Extracts the app's real design tokens** — color swatches render live. *[on-screen: "design intelligence — impossible for a vision-only agent"]*
-3. **Files a support ticket** — the real modal opens and fills. *[on-screen: "real action"]*
-4. **Switches to the admin identity** and reads the admin-only "danger zone". *[on-screen: "context-aware / permission-dependent"]*
-5. **Reaches the destructive "Delete workspace" control** → **pauses**. Alexa asks, *"This one is
-   sensitive — should I go ahead?"* Click **Yes**; it opens the confirm dialog (no data deleted).
-   *[on-screen: "explicit safety boundary — CONFIRM"]*
-6. **Switches the theme to dark** — the real page flips to dark. *[on-screen: "verified"]*
-7. **THE CROSSING:** Nexus moves into the real **native Windows Notepad** and **types the review
-   brief** — the viewer watches text appear in a real desktop app. Nexus reads the window's own
-   state back to verify. *[on-screen: "same architecture — web → native desktop"]*
-**VO (over the run):** "One sentence. Nexus finds each capability by meaning, does it in the real
-browser, then crosses into a real native Windows app — and *verifies* each result. When something's
-destructive, it stops and asks first."
+1. **Understand:** the UI reports semantic controls discovered in the live app.
+2. **See beneath the pixels:** structured design tokens appear as named values/swatches.
+3. **Read:** Alexa reports the current live appearance.
+4. **Act and prove:** Firefox changes to dark mode; verification turns green.
+5. **Stop before risk:** a sensitive account action pauses. Alexa asks for approval. Click **Yes**; only the safe confirmation dialog opens.
+6. **Cross environments:** the verified summary appears in native Notepad; exact UIA read-back turns green.
 
-## 1:45–2:15 — The architecture reveal
-**Visual:** Simple diagram: `Alexa+ (simulated) → MCP 2025-11-25 Streamable HTTP → Nexus tools →
-Firefox (web, LIVE) + Windows (native, LIVE)`, with Chrome/macOS/Android/iOS shown greyed as
-"Nexus reach / roadmap". Highlight the transport badge and `protocol: 2025-11-25`.
-**VO:** "Under the hood: a real, self-hosted MCP server on the 2025-11-25 Streamable HTTP
-transport the Alexa+ track requires. Amazon Bedrock plans the request; Nexus executes and
-verifies it. The same MCP layer works for any agent — not just Alexa."
-**On-screen text:** *Bedrock plans · Nexus executes & verifies · MCP 2025-11-25 Streamable HTTP*
+**Minimal VO:** “That was one request. The browser state was read, changed, and checked. The sensitive action stopped before execution. Then the result crossed into a native Windows app.”
 
-## 2:15–2:35 — Breadth + open source
-**Visual:** The reach panel again — web live now; desktop/mobile "coming online" through the same
-seam. Show the GitHub repo (Apache-2.0).
-**VO:** "Firefox is live today; desktop and mobile connect through the exact same interface as
-Nexus comes online. It's open source — Alexa is just the first client."
+Do not explain the engine yet.
 
-## 2:35–2:50 — Result
-**Visual:** The simulator shows all steps ✅ and the outro; the real page is in dark mode with a
-ticket filed.
-**VO:** "One request. Real cross-substrate execution. Verified. Safe. That's Nexus for Alexa+."
-**On-screen text:** *github.com/Mbuso-Harvey/nexus-alexa*
+## 1:35–1:48 — Let the question land
 
----
+**Visual:** all six steps green, Firefox dark, confirmation dialog open, Notepad populated.
+**VO:** “Alexa does not have a custom integration for either of these applications. So—how did it do that?”
+Click **How did Alexa do that?**
 
-## Editing notes
-- Cuts/speed-ups are fine for wait time; do **not** fabricate any outcome.
-- Keep the real Firefox window visible during the core run so it's obviously not faked.
-- Label the Alexa+ side "simulated" on screen at least once (the badge is always visible).
-- If Bedrock is enabled for the recording, the badge reads "Planned by Amazon Bedrock"; if not,
-  "Planned deterministically" — both are truthful.
+## 1:48–2:20 — Reveal Nexus
+
+**Visual:** the hidden panel reveals **Nexus Semantic**, one runtime, and graph statistics. Then show the code/runtime diagram.
+
+**VO:** "The engine is Nexus Semantic—our universal semantic execution layer. Alexa is only the client. Every capability you just saw crossed one Nexus MCP process: 408 semantic nodes, 143 capabilities, 50 interaction states, 5,800 relationships, and 22 design tokens. Nexus owned Firefox through WebDriver BiDi, Windows through UI Automation, the safety decision, and every read-back."
+
+**Diagram:** `Alexa+ → MCP Streamable HTTP → Nexus MCP runtime → Firefox + Windows`
+
+## 2:20–2:37 — Technical credibility
+
+**Visual:** briefly show `src/nexus/real.ts`, the absence of direct live adapters, the Nexus MCP tool list, passing tests, and the friction/evidence ledger.
+
+**VO:** “There is no browser or desktop automation in the Alexa UI. Live mode refuses to start without the real Nexus tool surface. The public gateway uses MCP 2025-11-25 Streamable HTTP; behind it, one Nexus process discovers, gates, executes, and verifies both environments.”
+
+If the run badge says **Planned by Amazon Bedrock**, add: “Amazon Bedrock grounded the request in the live capability surface.”
+If it says **Planned deterministically**, say: “This take uses the repeatable planner; Bedrock can occupy the same grounded planning layer.”
+
+## 2:37–2:52 — Close
+
+**Visual:** outcome, then repository URL.
+**VO:** “Today Alexa used it. Tomorrow any agent can. One semantic engine for every environment.”
+**On-screen:** `github.com/Mbuso-Harvey/nexus-alexa`
+
+## Recording acceptance
+
+- Under 3:00.
+- Alexa+ simulation badge visible.
+- Firefox and Windows marked live.
+- Exactly six steps in one coherent run.
+- Do not splice separate runs into one apparent execution.
+- Do not say Nexus until the reveal.
+- Confirmation must visibly occur before the sensitive action.
+- Theme and Notepad verification must be visible.
+- Planner narration must match the badge.
+- Never use the deleted direct-adapter proofs; use `NEXUS-ONLY CROSS-SUBSTRATE DEMO PROVEN` evidence.

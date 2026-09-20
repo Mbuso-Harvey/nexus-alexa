@@ -1,0 +1,126 @@
+{
+  "color": {
+    "bg": {
+      "$value": "#ffffff",
+      "$type": "color",
+      "$description": "color.bg"
+    },
+    "fg": {
+      "$value": "#1a1a1a",
+      "$type": "color",
+      "$description": "color.fg"
+    },
+    "muted": {
+      "$value": "#6b7280",
+      "$type": "color",
+      "$description": "color.muted"
+    },
+    "accent": {
+      "$value": "#3b82f6",
+      "$type": "color",
+      "$description": "color.accent"
+    },
+    "danger": {
+      "$value": "#dc2626",
+      "$type": "color",
+      "$description": "color.danger"
+    },
+    "border": {
+      "$value": "#e5e7eb",
+      "$type": "color",
+      "$description": "color.border"
+    }
+  },
+  "radius": {
+    "sm": {
+      "$value": "4px",
+      "$type": "dimension",
+      "$description": "radius.sm"
+    },
+    "md": {
+      "$value": "8px",
+      "$type": "dimension",
+      "$description": "radius.md"
+    },
+    "lg": {
+      "$value": "16px",
+      "$type": "dimension",
+      "$description": "radius.lg"
+    }
+  },
+  "space": {
+    "1": {
+      "$value": "4px",
+      "$type": "dimension",
+      "$description": "space.1"
+    },
+    "2": {
+      "$value": "8px",
+      "$type": "dimension",
+      "$description": "space.2"
+    },
+    "3": {
+      "$value": "12px",
+      "$type": "dimension",
+      "$description": "space.3"
+    },
+    "4": {
+      "$value": "16px",
+      "$type": "dimension",
+      "$description": "space.4"
+    },
+    "6": {
+      "$value": "24px",
+      "$type": "dimension",
+      "$description": "space.6"
+    }
+  },
+  "font": {
+    "family": {
+      "sans": {
+        "$value": "system-ui, -apple-system, sans-serif",
+        "$type": "string",
+        "$description": "font.family.sans"
+      }
+    },
+    "weight": {
+      "regular": {
+        "$value": "400",
+        "$type": "string",
+        "$description": "font.weight.regular"
+      },
+      "medium": {
+        "$value": "500",
+        "$type": "string",
+        "$description": "font.weight.medium"
+      },
+      "bold": {
+        "$value": "700",
+        "$type": "string",
+        "$description": "font.weight.bold"
+      }
+    },
+    "size": {
+      "sm": {
+        "$value": "14px",
+        "$type": "dimension",
+        "$description": "font.size.sm"
+      },
+      "md": {
+        "$value": "16px",
+        "$type": "dimension",
+        "$description": "font.size.md"
+      },
+      "lg": {
+        "$value": "20px",
+        "$type": "dimension",
+        "$description": "font.size.lg"
+      },
+      "xl": {
+        "$value": "28px",
+        "$type": "dimension",
+        "$description": "font.size.xl"
+      }
+    }
+  }
+}

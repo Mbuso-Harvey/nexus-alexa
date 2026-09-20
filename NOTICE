@@ -1,19 +1,29 @@
-Nexus for Alexa+
+Alexa Action Mode / Nexus for Alexa+
 Copyright 2026 Mbuso-Harvey
 
-This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+Licensed under the Apache License, Version 2.0 (see LICENSE).
 
 ------------------------------------------------------------------------------
-Third-party / vendored components
+Related in-house product
 ------------------------------------------------------------------------------
 
-This repository vendors a minimal, unmodified subset of NexusOS Semantic under
-vendor/nexus/ for reproducibility. That subset is:
+Live application execution is provided by the separate NexusOS Semantic product
+repository (`../_research_awg` in the development workspace):
 
   NexusOS Semantic
-  Copyright NexusOS Systems
+  Copyright 2026 The NexusOS Systems Authors
   Licensed under the Apache License, Version 2.0.
-  See vendor/nexus/LICENSE and vendor/nexus/README.md for provenance and the
-  exact files included (WebDriver BiDi client + Windows UI Automation bridge).
+  https://github.com/nexusos-systems/nexusos-semantic
 
-No modifications were made to the vendored files; attribution is preserved.
+No Nexus browser or desktop runtime code is vendored into this Alexa repository.
+The Alexa gateway launches one Nexus MCP stdio process and calls its public tools.
+
+------------------------------------------------------------------------------
+Demo fixture
+------------------------------------------------------------------------------
+
+`demo/saas` began as the Apache-2.0 NexusOS Semantic synthetic SaaS fixture and
+is maintained here as a derivative demonstration target. This project adds a
+stable ID to the safe sign-out control for deterministic graph binding. The
+committed `demo/nexus-graph` is generated output from the Nexus crawler.
+Attribution is preserved in `demo/saas/README.md`.

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Alexa+ · Nexus Semantic (simulator)</title>
+    <title>Alexa+ Action Mode (simulator)</title>
     <style>
       :root {
         --bg: #05060a;
@@ -95,11 +95,11 @@
     <header>
       <div class="dot"></div>
       <div>
-        <h1>Alexa+ · Nexus Semantic</h1>
-        <div class="tag">one request → cross-substrate execution → verified outcome</div>
+        <h1>Alexa+ Action Mode</h1>
+        <div class="tag">one request → real software → verified outcome</div>
       </div>
       <span class="plan-badge" id="planBadge" title="Which layer planned this request"></span>
-      <div class="sim-badge">Alexa+ interface simulated · Nexus execution real</div>
+      <div class="sim-badge">Alexa+ simulated · connected apps live</div>
     </header>
 
     <main>
@@ -122,19 +122,26 @@
       </section>
 
       <section class="card manifest">
-        <h2>Nexus capability reach</h2>
+        <h2>Connected capability surface</h2>
         <div class="muted" style="margin-bottom:8px">
-          What Alexa can drive through Nexus. <span style="color:var(--live)">●</span> live in this demo ·
-          <span style="color:var(--implemented)">●</span> implemented in Nexus ·
+          What this Alexa experience can reach. <span style="color:var(--live)">●</span> live now ·
+          <span style="color:var(--implemented)">●</span> available, not shown ·
           <span style="color:var(--coming)">●</span> roadmap.
         </div>
         <div id="manifest"></div>
+        <button class="ghost" id="revealEngine" style="width:100%;margin-top:18px">How did Alexa do that?</button>
+        <div id="engineReveal" hidden style="margin-top:14px;padding:14px;border:1px solid var(--accent);border-radius:12px;background:#071922">
+          <h2 style="color:var(--accent);margin-bottom:8px">The engine: Nexus Semantic</h2>
+          <div style="font-weight:700;margin-bottom:6px">One semantic runtime. Every environment.</div>
+          <div class="muted">This experience is a thin Alexa client. A single Nexus MCP process owns the application graph, WebDriver BiDi session, security decisions, Windows UI Automation, and post-action read-back.</div>
+          <div class="muted" style="margin-top:8px" id="engineStats">Loading trusted-graph stats…</div>
+        </div>
       </section>
     </main>
 
     <footer>
-      Alexa+ experience is simulated per hackathon rules. All Nexus tool calls run over a real
-      MCP 2025-11-25 Streamable HTTP server.
+      Alexa+ is simulated as permitted by the hackathon rules. Every demonstrated application
+      action crosses the real MCP execution engine; the browser UI performs no automation.
     </footer>
 
     <script>
@@ -142,7 +149,7 @@
       const SUB_LABEL = { firefox: "Firefox", chrome: "Chrome", windows: "Windows", macos: "macOS", android: "Android", ios: "iOS" };
       const examples = [
         "Alexa, get me set up for the Acme review at 3",
-        "Alexa, switch the app to dark mode and turn on billing alerts",
+        "Alexa, switch the app to dark mode and prepare my review brief",
       ];
       const exBox = $("examples");
       examples.forEach((t) => {
@@ -185,7 +192,7 @@
       const flowState = {};
       function renderFlow(substrates) {
         const flow = $("flow"); flow.innerHTML = "";
-        const chain = ["Alexa", "Nexus", ...substrates.map((s) => SUB_LABEL[s] || s)];
+        const chain = ["Alexa", "Execution engine", ...substrates.map((s) => SUB_LABEL[s] || s)];
         chain.forEach((label, i) => {
           const n = document.createElement("div");
           n.className = "node"; n.id = "flow-" + label; n.innerHTML = "<span>" + label + "</span>";
@@ -196,7 +203,7 @@
           }
         });
         const a = document.getElementById("flow-Alexa"); if (a) a.classList.add("done");
-        const nx = document.getElementById("flow-Nexus"); if (nx) nx.classList.add("done");
+        const engine = document.getElementById("flow-Execution engine"); if (engine) engine.classList.add("done");
       }
       function markFlow(sub, cls) {
         const n = document.getElementById("flow-" + (SUB_LABEL[sub] || sub));
@@ -241,7 +248,7 @@
         div.innerHTML =
           "<h3>⚠ Confirmation needed</h3>" +
           "<div>" + step.say + "</div>" +
-          '<div class="muted" style="margin-top:6px">Nexus classified this as sensitive and paused before acting.</div>' +
+          '<div class="muted" style="margin-top:6px">The execution policy classified this as sensitive and paused before acting.</div>' +
           '<div class="row"><button id="grant">Yes, do it</button>' +
           '<button class="ghost" id="deny">No, cancel</button></div>';
         slot.appendChild(div);
@@ -308,6 +315,12 @@
       $("go").onclick = run;
       $("objective").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
 
+      $("revealEngine").onclick = () => {
+        const panel = $("engineReveal");
+        panel.hidden = !panel.hidden;
+        $("revealEngine").textContent = panel.hidden ? "How did Alexa do that?" : "Hide engine reveal";
+      };
+
       // Load the capability manifest into the reach panel.
       fetch("/api/manifest").then((r) => r.json()).then((caps) => {
         const box = $("manifest");
@@ -319,13 +332,21 @@
           h.textContent = SUB_LABEL[sub] || sub; box.appendChild(h);
           bySub[sub].forEach((c) => {
             const row = document.createElement("div"); row.className = "rowc";
-            const rLabel = { "live-demo": "live", "implemented": "in Nexus", "roadmap": "roadmap" }[c.readiness] || c.readiness;
+            const rLabel = { "live-demo": "live", "implemented": "available", "roadmap": "roadmap" }[c.readiness] || c.readiness;
             row.innerHTML = '<span class="rd ' + c.readiness + '"></span><span>' + c.name +
               ' <span class="muted" style="font-size:10px">(' + rLabel + ')</span></span>';
             box.appendChild(row);
           });
         });
       });
+
+      // Populate the reveal panel with stats read from the trusted Nexus crawl artifact.
+      fetch("/api/enginestats").then((r) => r.json()).then((s) => {
+        const el = $("engineStats");
+        if (!el || !s || typeof s.pages !== "number") { if (el) el.textContent = "Stats unavailable for this launch."; return; }
+        el.textContent = `Demo graph: ${s.pages} pages · ${s.semanticNodes} semantic nodes · ${s.capabilities} capabilities · ${s.interactionStates} interaction states · ${s.relationships} relationships · ${s.designTokens} design tokens.`;
+      });
+
     </script>
   </body>
 </html>
