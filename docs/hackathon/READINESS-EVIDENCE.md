@@ -48,7 +48,8 @@ No new capabilities, no architecture changes; the proven Firefox → Windows exe
 | Bedrock wording | docs vs implementation | "Arbitrary/free-form live capability discovery" claims removed; docs now state declared-manifest grounding + constrained headline workflow (matches `headlinePlanComplete` + manifest filtering) |
 | Boundary | `_research_awg` internal material | Relocated intact to machine-local archive outside both repos: `docs/COMMERCIAL_STRATEGY.md`, `docs/BRANDING_AND_NAMING_TAXONOMY.md`, `docs/COSMOS_AGENT_INTEGRATION_INSTRUCTIONS.md`, `docs/nexus-perf-cost-map.md`, all internal PR gate logs/audits/branch-protection configs, cosmos agent state (`.cosmos/`, `cosmos.environment.json`, `_hook_smoke.md`). 52 files, +13/−13,632 — docs/tooling-state only, zero runtime code delta vs the certified runtime. `.gitignore` now rejects these paths |
 | Secrets | pattern scan of tracked tree | 0 real secrets (2 hits are fake test fixtures: `ghp_testtoken12345`) |
-| Identity | engine dependency | Public repo + pinned tag `nexus-alexa-submission-v1` (commit `e2b0e1d`); judge-facing docs reference the public repository/URL, not the dev-workspace sibling |
+| Identity | engine dependency | Public repo `Mbuso-Harvey/nexusos-semantic` (fresh release history) + pinned tag `nexus-alexa-submission-v1` (commit `b0fd3b9`); judge-facing docs reference the public repository/URL, not the dev-workspace sibling |
+| Public packaging | fresh-history public repo | `Mbuso-Harvey/nexusos-semantic` @ `b0fd3b9` — single-commit release history, exactly the boundary-clean release tree, Apache-2.0 detectable; tag `nexus-alexa-submission-v1` on the actual public commit; logged-out cold-clone → full Firefox + Windows + Bedrock run is the final release gate before recording |
 | Nexus | build + targeted MCP/desktop tests at `e180b24` | PASS: build clean; targeted 43/43 (2 files); security suite 40/40 (3 files) |
 
 ## Final evidence template

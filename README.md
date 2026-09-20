@@ -44,12 +44,12 @@ Firefox and Windows are two different live substrates owned by the same Nexus pr
 ## Repositories and prerequisites
 
 - `nexus-alexa/` (this repository) — Alexa experience, HTTP MCP gateway, orchestration, demo fixture, and evidence.
-- **Nexus Semantic** (the engine) — the public repository [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic), pinned for this submission at tag `nexus-alexa-submission-v1` (commit `e2b0e1d`; runtime code identical to the certified build — the tag adds the release-boundary cleanup only).
+- **Nexus Semantic** (the engine) — the public repository [`Mbuso-Harvey/nexusos-semantic`](https://github.com/Mbuso-Harvey/nexusos-semantic), pinned for this submission at tag `nexus-alexa-submission-v1` (commit `b0fd3b9`; the public repository carries a fresh release history containing exactly the boundary-clean release tree).
 
 A clean clone is deterministic. Clone the engine and check out the pinned tag:
 
 ```powershell
-git clone https://github.com/nexusos-systems/nexusos-semantic
+git clone https://github.com/Mbuso-Harvey/nexusos-semantic
 git -C nexusos-semantic checkout nexus-alexa-submission-v1
 ```
 
@@ -142,4 +142,4 @@ See `docs/hackathon/READINESS-EVIDENCE.md`, `DEMO-RUNBOOK.md`, and `FRICTION-LOG
 
 ## License
 
-Apache-2.0. See `LICENSE` and `NOTICE`. Nexus Semantic is the separate public repository [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic), pinned for this submission at tag `nexus-alexa-submission-v1` (commit `e2b0e1d`).
+Apache-2.0. See `LICENSE` and `NOTICE`. Nexus Semantic is the separate public repository [`Mbuso-Harvey/nexusos-semantic`](https://github.com/Mbuso-Harvey/nexusos-semantic), pinned for this submission at tag `nexus-alexa-submission-v1` (commit `b0fd3b9`).

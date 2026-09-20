@@ -3,7 +3,7 @@
 **Primary track:** Alexa+
 **Mini-challenges:** Open Source; AWS Builder
 **Contribution:** https://github.com/Mbuso-Harvey/nexus-alexa
-**Engine:** Nexus Semantic — https://github.com/nexusos-systems/nexusos-semantic (pinned at tag `nexus-alexa-submission-v1`, commit `e2b0e1d`)
+**Engine:** Nexus Semantic — https://github.com/Mbuso-Harvey/nexusos-semantic (pinned at tag `nexus-alexa-submission-v1`, commit `b0fd3b9`)
 **License:** Apache-2.0
 
 ## Elevator pitch
@@ -64,7 +64,7 @@ npm run build
 powershell -ExecutionPolicy Bypass -File scripts/start-hidden-engine-demo.ps1
 ```
 
-The engine is the public [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic) repository at the pinned tag `nexus-alexa-submission-v1` (commit `e2b0e1d`) — it is the product being demonstrated, not a library copied into the Alexa entry. Clone it, check out the pinned tag, and place the checkout as a sibling of this repository (the demo defaults to the sibling path). Full setup and proof commands are in `docs/hackathon/DEMO-RUNBOOK.md`.
+The engine is the public [`Mbuso-Harvey/nexusos-semantic`](https://github.com/Mbuso-Harvey/nexusos-semantic) repository at the pinned tag `nexus-alexa-submission-v1` (commit `b0fd3b9`) — it is the product being demonstrated, not a library copied into the Alexa entry. Clone it, check out the pinned tag, and place the checkout as a sibling of this repository (the demo defaults to the sibling path). Full setup and proof commands are in `docs/hackathon/DEMO-RUNBOOK.md`.
 
 ## Verified engineering evidence
 

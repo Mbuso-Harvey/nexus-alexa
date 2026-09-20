@@ -4,10 +4,10 @@ The live submission is valid only when every application operation crosses one g
 
 ## 1. Preflight both repositories
 
-The engine is the public [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic) repository pinned at tag `nexus-alexa-submission-v1` (commit `e2b0e1d`). In this dev workspace it is checked out as the sibling `../\_research_awg`. Cold clone:
+The engine is the public [`Mbuso-Harvey/nexusos-semantic`](https://github.com/Mbuso-Harvey/nexusos-semantic) repository pinned at tag `nexus-alexa-submission-v1` (commit `b0fd3b9`). In this dev workspace it is checked out as the sibling `../\_research_awg`. Cold clone:
 
 ```powershell
-git clone https://github.com/nexusos-systems/nexusos-semantic
+git clone https://github.com/Mbuso-Harvey/nexusos-semantic
 git -C nexusos-semantic checkout nexus-alexa-submission-v1
 
 node --version             # 24.x or 26+
