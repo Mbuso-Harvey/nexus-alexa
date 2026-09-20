@@ -20,9 +20,13 @@ $driver = (Get-Command geckodriver -ErrorAction Stop).Source
 
 $oldPort = $env:PORT
 $env:PORT = [string]$AppPort
+# Windows PowerShell 5.1 passes a single-string -ArgumentList verbatim (no quoting), so a
+# project path containing spaces is split by the child's CRT parser ("Cannot find module
+# 'C:\Users\Harvey\AMAZON'"). Quote the path explicitly so node receives one argument.
+$serverScript = Join-Path $ProjectRoot "demo\saas\server.cjs"
 try {
   $demoProcess = Start-Process node `
-    -ArgumentList (Join-Path $ProjectRoot "demo\saas\server.cjs") `
+    -ArgumentList ('"{0}"' -f $serverScript) `
     -WorkingDirectory $ProjectRoot -PassThru
 }
 finally {

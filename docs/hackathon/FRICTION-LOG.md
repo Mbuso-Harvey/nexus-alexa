@@ -140,3 +140,16 @@
 - **Severity:** Critical (the headline 5-run gate could not pass, and the combined run leaked its process tree).
 - **Fix:** Replaced `const` with `$process`; added stdin `end`/`close` handlers that run `cleanup()` and `process.exit(0)`; retried `SetForegroundWindow` with the ALT-tickle + `AttachThreadInput` technique before failing closed; made the read-back verification retry up to 5×120ms before declaring a mismatch; made the gate decide pass/fail from the `PROVEN` marker + `overall: true` (not a shell exit code contaminated by the Nexus child's inherited stderr).
 - **Suggested platform fix:** Give `StdioServerTransport`/`cmdServe` an explicit "exit on transport close" mode, and make UIA read-back verification retry a controlled number of times by default.
+
+## 2026-09-20 — Post-certification audit
+
+### F-014 · Windows PowerShell 5.1 · `Start-Process` argument quoting broke the demo launcher in spaced paths
+- **Task:** Run the README's primary demo command (`scripts/start-hidden-engine-demo.ps1`) from this workspace, whose path contains spaces (`C:\Users\Harvey\AMAZON ALEXA+ HACKATHON`).
+- **Steps:** The launcher starts the demo SaaS via `Start-Process node -ArgumentList (Join-Path $ProjectRoot "demo\saas\server.cjs")`.
+- **Expected:** node loads `demo\saas\server.cjs` and the SaaS listens on 7312.
+- **Actual:** Windows PowerShell 5.1 passes a single-string `-ArgumentList` verbatim without quoting, so the child's CRT parser splits on spaces and node failed with `Cannot find module 'C:\Users\Harvey\AMAZON'`. The SaaS never started, so every downstream live step in that launch path fails. Reproduced in isolation with a 3-second probe (node exited immediately, code 1).
+- **Severity:** Critical (the primary first-run command silently fails in any workspace path containing spaces; the certified 5/5 gate used the direct proof scripts, which is why this was not caught earlier).
+- **Fix:** Quote the argument explicitly (`-ArgumentList ('"{0}"' -f $serverScript)`) so node receives one quoted path; verified in isolation that node then starts and stays up. Also hardened `src/nexus/real.ts`: `desktop_scrape_window` (used by the windows query path) is now part of the connect-time required-tools validation, so a runtime lacking it fails closed at startup instead of mid-demo.
+- **Time lost:** ~45 min across the post-certification verification session.
+- **Suggested platform fix:** `Start-Process` in Windows PowerShell 5.1 should quote `ArgumentList` items containing spaces (PowerShell 7.3+ already does).
+- **Evidence:** probe stderr `Cannot find module 'C:\Users\Harvey\AMAZON'`; post-fix probe showing the server stay up; `26/26` hermetic tests + clean typecheck/build after both fixes.

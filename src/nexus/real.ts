@@ -105,7 +105,14 @@ export class RealNexusSubstrate implements NexusSubstrate {
       );
     }
     if (this.substrates.includes("windows")) {
-      required.push("desktop_list_windows", "desktop_read_text", "desktop_replace_text");
+      // desktop_scrape_window backs the windows query path; validate it at connect so a
+      // runtime without it fails closed at startup rather than mid-demo.
+      required.push(
+        "desktop_list_windows",
+        "desktop_scrape_window",
+        "desktop_read_text",
+        "desktop_replace_text",
+      );
     }
     const missing = required.filter((name) => !names.has(name));
     if (missing.length) {
