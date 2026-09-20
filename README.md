@@ -37,16 +37,23 @@ Firefox and Windows are two different live substrates owned by the same Nexus pr
 | Nexus MCP stdio product runtime | Real and mandatory for live mode |
 | Firefox graph/BiDi execution | Live through Nexus |
 | Windows UIA execution | Live through Nexus |
-| Amazon Bedrock planning | Optional; claim only when the UI badge proves it |
+| Amazon Bedrock planning | Optional; declared-manifest grounding; claim only when the UI badge proves it |
 | Chrome/CDP | Implemented in Nexus, not shown in this take |
 | macOS/Android/iOS | Roadmap, never presented as live |
 
 ## Repositories and prerequisites
 
-The workspace contains sibling repositories:
+- `nexus-alexa/` (this repository) — Alexa experience, HTTP MCP gateway, orchestration, demo fixture, and evidence.
+- **Nexus Semantic** (the engine) — the public repository [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic), pinned for this submission at tag `nexus-alexa-submission-v1` (commit `e180b24`; runtime code identical to the certified build — the tag adds the release-boundary cleanup only).
 
-- `nexus-alexa/` — Alexa experience, HTTP MCP gateway, orchestration, demo fixture, and evidence.
-- `_research_awg/` — the genuine Nexus Semantic product runtime.
+A clean clone is deterministic. Clone the engine and check out the pinned tag:
+
+```powershell
+git clone https://github.com/nexusos-systems/nexusos-semantic
+git -C nexusos-semantic checkout nexus-alexa-submission-v1
+```
+
+In this development workspace the engine is checked out as the sibling `_research_awg/`. That layout is a local convenience only — judges and cold cloners check out the pinned tag and pass their own checkout path via `--nexus-root`/`--graph`/`--target-app`.
 
 Requirements: Windows, Node.js 24.x or 26+, npm, pnpm 11+, Firefox, geckodriver, PowerShell, and classic Notepad. AWS credentials/model access are optional.
 
@@ -60,7 +67,8 @@ npm run typecheck
 npm run build
 npm audit --audit-level=moderate
 
-# Nexus repository
+# Nexus Semantic engine — pinned tag nexus-alexa-submission-v1
+# (..\_research_awg is this dev workspace's checkout)
 pnpm --dir ..\_research_awg install
 pnpm --dir ..\_research_awg run build
 pnpm --dir ..\_research_awg exec vitest run test/server/mcp-server.test.ts test/desktop/mcp-desktop-tools.test.ts
@@ -85,6 +93,8 @@ Open `http://127.0.0.1:8392/`. The primary interface says **Alexa+ Action Mode**
 Equivalent manual gateway command:
 
 ```powershell
+# --nexus-root points at your checkout of the pinned engine tag
+# (..\_research_awg in this dev workspace)
 npx tsx src/cli.ts serve --client `
   --nexus-root ..\_research_awg `
   --graph .\demo\nexus-graph `
@@ -118,9 +128,11 @@ The combined proof requires exactly one Nexus child process and prints `NEXUS-ON
 | `src/nexus/real.ts` | Thin translator to one genuine Nexus MCP process |
 | `src/nexus/build.ts` | Enforces one shared runtime; no direct live adapters |
 | `demo/nexus-graph/` | Committed Nexus crawl artifact |
-| `_research_awg/src/server/mcp-server.ts` | Nexus graph/live/desktop MCP tools |
-| `_research_awg/src/server/invoke.ts` | Nexus capability resolution, safety gate, and BiDi invocation |
-| `_research_awg/src/desktop/windows/` | Nexus Windows UIA substrate and exact text verification |
+| `nexusos-semantic` `src/server/mcp-server.ts` | Nexus graph/live/desktop MCP tools |
+| `nexusos-semantic` `src/server/invoke.ts` | Nexus capability resolution, safety gate, and BiDi invocation |
+| `nexusos-semantic` `src/desktop/windows/` | Nexus Windows UIA substrate and exact text verification |
+
+Engine paths are relative to the pinned NexusOS Semantic checkout (tag `nexus-alexa-submission-v1`; `../_research_awg` in this dev workspace).
 
 Offline fake substrates remain only for labeled hermetic tests and rehearsal. They are not evidence for live claims.
 
@@ -130,4 +142,4 @@ See `docs/hackathon/READINESS-EVIDENCE.md`, `DEMO-RUNBOOK.md`, and `FRICTION-LOG
 
 ## License
 
-Apache-2.0. See `LICENSE` and `NOTICE`. Nexus Semantic is maintained as the separate in-house product repository at `../_research_awg` / `nexusos-systems/nexusos-semantic`.
+Apache-2.0. See `LICENSE` and `NOTICE`. Nexus Semantic is the separate public repository [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic), pinned for this submission at tag `nexus-alexa-submission-v1` (commit `e180b24`).

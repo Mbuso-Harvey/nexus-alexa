@@ -108,19 +108,21 @@ failed until we set `css.postcss` explicitly — a footgun when running inside a
 ## 6. Amazon Bedrock (`@aws-sdk/client-bedrock-runtime`) — AWS Builder mini-challenge
 
 **Used for:** The **planning/intent layer**. `BedrockPlanBuilder` (src/plan-bedrock.ts) uses the
-Bedrock **Converse API** to turn an arbitrary spoken request into a *validated, ordered plan of
-real Nexus capability invocations*, grounded in the live capability manifest. Bedrock does the
-hard agentic reasoning (which capabilities, in what order, with what inputs); Nexus executes and
-semantically verifies the plan over MCP 2025-11-25 Streamable HTTP. This is a purposeful
-multi-service architecture (Bedrock plans → Nexus executes/verifies), not a single decorative
-text-generation call.
+Bedrock **Converse API** to ground a spoken request in the *declared* capability manifest and
+produce a *validated, ordered plan of real Nexus capability invocations* — constrained to
+manifest capabilities and the strongly-checked headline workflow, not free-form discovery.
+Bedrock does the hard agentic reasoning (which declared capabilities, in what order, with what
+inputs); Nexus executes and semantically verifies the plan over MCP 2025-11-25 Streamable HTTP.
+This is a purposeful multi-service architecture (Bedrock plans → Nexus executes/verifies), not a
+single decorative text-generation call.
 
 **Why it's not "obvious":**
 - The model is constrained to the real capability catalogue; hallucinated capabilities are
   dropped during validation before anything touches a substrate.
 - Safety is still enforced downstream by Nexus's tier gate regardless of the model's output.
-- It unlocks open-ended natural language ("tidy up my workspace and darken the UI") instead of
-  keyword matching, while the deterministic planners remain as a guaranteed fallback.
+- It maps open-ended natural language ("tidy up my workspace and darken the UI") onto the declared
+  capability catalogue instead of keyword matching, while the deterministic planners remain as a
+  guaranteed fallback.
 
 **What worked well:**
 - The Converse API is model-agnostic and gives a clean `system` + `messages` shape; temperature 0
@@ -133,8 +135,9 @@ text-generation call.
   until the model is enabled in the Bedrock console. We handle this by falling back silently to
   the deterministic planner and surfacing a "planned deterministically" label.
 
-**Onboarding:** Straightforward with an AWS account that has Bedrock model access enabled and
-standard credentials (`AWS_PROFILE` / keys) + `AWS_REGION`.
+**Onboarding:** Straightforward with an AWS account that has Bedrock model access enabled.
+Credentials resolve through the standard AWS SDK provider chain — a normal `aws configure`
+default profile works without `AWS_PROFILE` or explicit keys — plus `AWS_REGION`.
 
 **Would use again:** **Yes** — Bedrock is a strong fit for the "understand-and-plan" layer above
 a deterministic execution/verification substrate.

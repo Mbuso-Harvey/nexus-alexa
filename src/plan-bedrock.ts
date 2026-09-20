@@ -2,16 +2,22 @@
  * BedrockPlanBuilder — AWS Builder mini-challenge integration.
  *
  * This is the AWS-native intent-and-planning layer. Rather than a trivial one-shot text
- * completion, Bedrock performs the genuinely hard step of the pipeline: it reasons over the
- * live Nexus capability manifest and turns an *arbitrary* spoken request into a validated,
- * ordered plan of real capability invocations (with inputs and expected post-state). That
- * plan is then executed and semantically verified by Nexus over MCP 2025-11-25 Streamable
- * HTTP. So AWS is doing the agentic orchestration/planning, and Nexus is doing the execution
- * and verification — a purposeful multi-service architecture, not a decorative Bedrock call.
+ * completion, Bedrock performs the genuinely hard step of the pipeline: it grounds the
+ * spoken request in the DECLARED Nexus capability manifest and proposes a validated,
+ * ordered plan of real capability invocations (with inputs and expected post-state).
+ * The proposal is constrained, not free-form: capabilities/inputs that are not in the
+ * manifest are dropped, and the strongly-checked headline workflow enforces order and
+ * completeness before a Bedrock plan is accepted (an incomplete proposal falls back
+ * deterministically). That plan is then executed and semantically verified by Nexus over
+ * MCP 2025-11-25 Streamable HTTP. So AWS is doing the agentic planning over a declared
+ * capability catalogue, and Nexus is doing the execution and verification — a purposeful
+ * multi-service architecture, not a decorative Bedrock call.
  *
  * Design guarantees:
- *  - Grounded: the model may only use capabilities that exist in the manifest; anything else
- *    is dropped during validation (no hallucinated actions reach a substrate).
+ *  - Grounded: the model may only use capabilities that exist in the declared manifest;
+ *    anything else is dropped during validation (no hallucinated actions reach a substrate).
+ *  - Constrained: the headline workflow check enforces capability order/completeness;
+ *    this demo does not claim fully dynamic live capability discovery.
  *  - Safe by construction: sensitivity/CONFIRM is still enforced downstream by Nexus's tier
  *    gate regardless of what the model proposes.
  *  - Graceful fallback: with no AWS credentials/region configured, `build()` returns null so
@@ -19,9 +25,17 @@
  *    breaks offline.
  */
 
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import type { Plan, PlanBuilder, PlanStep } from "./plan.js";
 import { CAPABILITY_MANIFEST, type CapabilitySpec } from "./nexus/manifest.js";
 import type { Substrate } from "./types.js";
+
+/**
+ * Memoized once-per-process credential-chain probe. Resolving credentials through the
+ * SDK's default chain is bounded (~1s metadata timeout, no retries), but it is still not
+ * free — and buildAsync runs per demo request — so the result is computed at most once.
+ */
+let credentialChainProbe: Promise<boolean> | undefined;
 
 export interface BedrockOptions {
   /** e.g. "us.anthropic.claude-3-5-sonnet-20241022-v2:0" or a cross-region inference profile. */
@@ -62,14 +76,28 @@ export class BedrockPlanBuilder implements PlanBuilder {
     );
   }
 
-  /** True when AWS credentials appear to be configured (so we should attempt Bedrock). */
-  static credentialsPresent(): boolean {
-    return Boolean(
-      process.env.AWS_ACCESS_KEY_ID ||
-        process.env.AWS_PROFILE ||
-        process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
-        process.env.AWS_WEB_IDENTITY_TOKEN_FILE,
-    );
+  /**
+   * True when the standard AWS SDK credential provider chain resolves credentials.
+   *
+   * Uses the SDK's default chain (environment variables -> SSO token cache -> web identity
+   * token -> shared INI files — the normal default profile created by `aws configure` ->
+   * EC2/ECS instance metadata), so credentials are detected without requiring AWS_PROFILE
+   * or explicit access-key environment variables merely to detect them. Probing is bounded
+   * (1s metadata timeout, no retries); any resolution failure — including no configuration
+   * at all — resolves false so callers fall back gracefully and the demo never breaks
+   * offline. Memoized once per process (see credentialChainProbe).
+   */
+  static credentialsPresent(): Promise<boolean> {
+    credentialChainProbe ??= (async () => {
+      try {
+        const provider = fromNodeProviderChain({ timeout: 1000, maxRetries: 0 });
+        const credentials = await provider();
+        return Boolean(credentials?.accessKeyId);
+      } catch {
+        return false;
+      }
+    })();
+    return credentialChainProbe;
   }
 
   /** Synchronous PlanBuilder contract: Bedrock is async, so this signals "use buildAsync". */
@@ -79,7 +107,7 @@ export class BedrockPlanBuilder implements PlanBuilder {
 
   /** The real entry point. Returns null on any failure so callers fall back deterministically. */
   async buildAsync(objective: string): Promise<Plan | null> {
-    if (!BedrockPlanBuilder.credentialsPresent()) return null;
+    if (!(await BedrockPlanBuilder.credentialsPresent())) return null;
     let ConverseModule: typeof import("@aws-sdk/client-bedrock-runtime");
     try {
       ConverseModule = await import("@aws-sdk/client-bedrock-runtime");

@@ -3,7 +3,7 @@
 **Primary track:** Alexa+
 **Mini-challenges:** Open Source; AWS Builder
 **Contribution:** https://github.com/Mbuso-Harvey/nexus-alexa
-**Engine:** Nexus Semantic — https://github.com/nexusos-systems/nexusos-semantic
+**Engine:** Nexus Semantic — https://github.com/nexusos-systems/nexusos-semantic (pinned at tag `nexus-alexa-submission-v1`, commit `e180b24`)
 **License:** Apache-2.0
 
 ## Elevator pitch
@@ -52,7 +52,7 @@ The Nexus product was also hardened during integration with bounded graph-approv
 
 ## AWS Builder
 
-Amazon Bedrock Converse can ground the request in the currently live capability manifest. Unsupported capabilities/inputs are dropped, an incomplete headline plan falls back deterministically, and the UI truthfully identifies which planner produced the run. We claim Bedrock in the video only when the badge says **Planned by Amazon Bedrock**.
+Amazon Bedrock Converse grounds the request in the declared Nexus capability manifest. The proposal is constrained, not free-form: unsupported capabilities/inputs are dropped, the strongly-checked headline workflow enforces order and completeness, an incomplete plan falls back deterministically, and the UI truthfully identifies which planner produced the run. Credentials are detected through the standard AWS SDK credential provider chain (environment, SSO, shared INI profiles — including the normal default profile created by `aws configure` — container, instance metadata), so no explicit access-key variable or `AWS_PROFILE` is required to enable Bedrock. We claim Bedrock in the video only when the badge says **Planned by Amazon Bedrock**.
 
 ## Reproduction
 
@@ -64,7 +64,7 @@ npm run build
 powershell -ExecutionPolicy Bypass -File scripts/start-hidden-engine-demo.ps1
 ```
 
-The sibling Nexus repository is required because it is the product being demonstrated, not a library copied into the Alexa entry. Full setup and proof commands are in `docs/hackathon/DEMO-RUNBOOK.md`.
+The engine is the public [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic) repository at the pinned tag `nexus-alexa-submission-v1` (commit `e180b24`) — it is the product being demonstrated, not a library copied into the Alexa entry. Clone it, check out the pinned tag, and place the checkout as a sibling of this repository (the demo defaults to the sibling path). Full setup and proof commands are in `docs/hackathon/DEMO-RUNBOOK.md`.
 
 ## Verified engineering evidence
 

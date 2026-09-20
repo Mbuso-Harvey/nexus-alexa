@@ -8,7 +8,9 @@ Related in-house product
 ------------------------------------------------------------------------------
 
 Live application execution is provided by the separate NexusOS Semantic product
-repository (`../_research_awg` in the development workspace):
+repository (https://github.com/nexusos-systems/nexusos-semantic, pinned for this
+submission at tag `nexus-alexa-submission-v1`; `../_research_awg` in the
+development workspace):
 
   NexusOS Semantic
   Copyright 2026 The NexusOS Systems Authors

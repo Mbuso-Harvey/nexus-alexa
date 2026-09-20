@@ -124,7 +124,7 @@ async function main() {
       });
       console.error(`[nexus-alexa] Alexa+ simulator at ${cs.url}`);
       const bedrockOn =
-        BedrockPlanBuilder.credentialsPresent() && Object.values(backing).includes("real");
+        (await BedrockPlanBuilder.credentialsPresent()) && Object.values(backing).includes("real");
       console.error(
         `[nexus-alexa]   planner: ${bedrockOn ? "Amazon Bedrock (AWS Builder) + deterministic fallback" : "deterministic (Bedrock requires AWS creds and at least one real substrate)"}`,
       );

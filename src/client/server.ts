@@ -81,7 +81,7 @@ export async function startClientServer(
   const bedrock =
     (opts.useBedrock ?? true) &&
     realSubstrates.length > 0 &&
-    BedrockPlanBuilder.credentialsPresent()
+    (await BedrockPlanBuilder.credentialsPresent())
       ? new BedrockPlanBuilder({ substrates: realSubstrates })
       : null;
   const planner = new AsyncCompositePlanBuilder(bedrock, deterministic);

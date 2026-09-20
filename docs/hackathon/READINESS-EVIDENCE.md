@@ -34,6 +34,23 @@ Environment: Windows; Node `v24.20.0`; npm `11.19.0`; pnpm `11.9.0`; Mozilla gec
 
 Five unlabeled textboxes remain in non-demonstrated fixture pages (tickets/settings). They reduce graph health to 95% but do not affect the theme, safety, token, or desktop path.
 
+## Release-correctness pass — 2026-09-20 (frozen submission state)
+
+No new capabilities, no architecture changes; the proven Firefox → Windows execution path is untouched.
+
+| Layer | Check | Result |
+|---|---|---|
+| Alexa | `npm test` | PASS: 28/28 (adds AWS-credential-chain regression coverage) |
+| Alexa | `npm run typecheck` | PASS |
+| Alexa | `npm run build` | PASS |
+| Alexa | `npm audit --audit-level=moderate` | 0 vulnerabilities |
+| Bedrock | credential discovery | Standard AWS SDK provider chain (`@aws-sdk/credential-providers` `fromNodeProviderChain`, env → SSO → shared INI → IMDS). Live: default profile created by `aws configure` detected in 37 ms with NO `AWS_PROFILE`/access-key env vars; real Bedrock plan produced (6 steps) with an enabled model; graceful deterministic fallback when the default model is not enabled on the account |
+| Bedrock wording | docs vs implementation | "Arbitrary/free-form live capability discovery" claims removed; docs now state declared-manifest grounding + constrained headline workflow (matches `headlinePlanComplete` + manifest filtering) |
+| Boundary | `_research_awg` internal material | Relocated intact to machine-local archive outside both repos: `docs/COMMERCIAL_STRATEGY.md`, `docs/BRANDING_AND_NAMING_TAXONOMY.md`, `docs/COSMOS_AGENT_INTEGRATION_INSTRUCTIONS.md`, `docs/nexus-perf-cost-map.md`, all internal PR gate logs/audits/branch-protection configs, cosmos agent state (`.cosmos/`, `cosmos.environment.json`, `_hook_smoke.md`). 52 files, +13/−13,632 — docs/tooling-state only, zero runtime code delta vs the certified runtime. `.gitignore` now rejects these paths |
+| Secrets | pattern scan of tracked tree | 0 real secrets (2 hits are fake test fixtures: `ghp_testtoken12345`) |
+| Identity | engine dependency | Public repo + pinned tag `nexus-alexa-submission-v1` (commit `e180b24`); judge-facing docs reference the public repository/URL, not the dev-workspace sibling |
+| Nexus | build + targeted MCP/desktop tests at `e180b24` | PASS: build clean; targeted 43/43 (2 files); security suite 40/40 (3 files) |
+
 ## Final evidence template
 
 ```text

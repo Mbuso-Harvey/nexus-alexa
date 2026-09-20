@@ -4,7 +4,12 @@ The live submission is valid only when every application operation crosses one g
 
 ## 1. Preflight both repositories
 
+The engine is the public [`nexusos-systems/nexusos-semantic`](https://github.com/nexusos-systems/nexusos-semantic) repository pinned at tag `nexus-alexa-submission-v1` (commit `e180b24`). In this dev workspace it is checked out as the sibling `../\_research_awg`. Cold clone:
+
 ```powershell
+git clone https://github.com/nexusos-systems/nexusos-semantic
+git -C nexusos-semantic checkout nexus-alexa-submission-v1
+
 node --version             # 24.x or 26+
 pnpm --version             # 11+
 Get-Command geckodriver
@@ -46,10 +51,12 @@ Close notifications, overlays, remote-control software, and unrelated focus-stea
 
 ## 4. Optional Bedrock
 
+Credentials resolve through the standard AWS SDK credential provider chain, so a normal `aws configure` default profile works without `AWS_PROFILE` or explicit access-key variables. Set a profile only to select a non-default one:
+
 ```powershell
 $env:AWS_REGION = "us-east-1"
-$env:AWS_PROFILE = "<your-profile>"
 $env:NEXUS_ALEXA_BEDROCK_MODEL = "<enabled-model-or-inference-profile-id>"
+# optional: $env:AWS_PROFILE = "<non-default-profile>"
 ```
 
 Use Bedrock narration only if the successful run badge proves Bedrock planned it.
@@ -71,6 +78,7 @@ node demo/saas/server.cjs
 geckodriver --port 4444 --host 127.0.0.1 --allow-origins http://127.0.0.1:9222
 Start-Process C:\Windows\System32\notepad.exe
 
+# --nexus-root points at your checkout of the pinned engine tag
 npx tsx src/cli.ts serve --client `
   --nexus-root ..\_research_awg `
   --graph .\demo\nexus-graph `
@@ -130,7 +138,7 @@ Record outputs and date in `READINESS-EVIDENCE.md` on the final commit/machine.
 
 ## Troubleshooting
 
-- Missing required tool at startup: rebuild `_research_awg`; do not bypass Nexus.
+- Missing required tool at startup: rebuild the pinned Nexus engine checkout (`../_research_awg` in this dev workspace); do not bypass Nexus.
 - `Session already started`: reset Firefox/geckodriver and start fresh.
 - Graph page rejected: target URL must exactly match the graph’s `http://127.0.0.1:7312` origin.
 - Nexus graph capability missing: regenerate the graph; never hard-code a direct click in Alexa.
