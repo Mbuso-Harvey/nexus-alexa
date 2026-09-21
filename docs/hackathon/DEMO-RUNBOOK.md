@@ -86,6 +86,35 @@ npx tsx src/cli.ts serve --client `
   --desktop
 ```
 
+This documented launch path starts the Nexus child **without operator authorization**, so the engine stays in its deliberate fail-closed `audit` posture and every write is denied (`AUDIT posture allows only read operations`). Authorize the child runtime for a live take with the documented config-file surface instead (see `nexus-alexa.config.example.json`): pass `--config <path>` (and no inline `--nexus-root`/`--graph`/`--target-app` flags, which would overwrite the config's `nexus` section) with, at minimum:
+
+```powershell
+# --config release-gate.json (create one; never commit operator secrets)
+node -e "console.log(JSON.stringify({ real: ['firefox','windows'], nexus: {
+  command: 'pnpm.cmd',
+  args: ['run','nexus','serve','--graph','C:\\path\\to\\demo\\nexus-graph','--desktop'],
+  env: {
+    AWG_POSTURE: 'autopilot',
+    AWG_AUTHORIZED_TARGETS: '127.0.0.1:7312,cap:*,graph_*,export_dtcg_tokens,desktop_*,<notepad-window-handle>',
+    AWG_AUTHORIZED_OPERATIONS: '*',
+    AWG_AUTHORIZED_SUBSTRATES: 'web,desktop',
+    AWG_MAX_IMPACT: 'destroy'
+  },
+  cwd: 'C:\\path\\to\\your\\nexusos-semantic\\checkout',
+  baseUrl: 'http://127.0.0.1:7312',
+  desktopProcessName: 'notepad'
+} }, null, 2))" > release-gate.json
+```
+
+Why this exact shape (verified on the 2026-09-20 cold-clone harness before writing it down):
+
+- The MCP SDK stdio transport spawns the Nexus child with only `getDefaultEnvironment()` plus the **explicit** `env` option, so session exports (`$env:AWG_POSTURE=…`) cannot reach the runtime. Only the config file's `nexus.env` reaches it.
+- Wildcard or missing `AWG_AUTHORIZED_TARGETS` makes the engine refuse to leave `audit` at boot (fail closed). The list above is the least privilege that passes: the demo origin, the tool/capability globs, and the exact Notepad window handle (capture it with `(Get-Process notepad | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1).MainWindowHandle`).
+- The default impact ceiling is `modify`; the CONFIRM-tier sign-out dialog is classified impact `destroy`, so it is denied unless `AWG_MAX_IMPACT` is raised to `destroy`. The Bedrock planner expects that ceiling: with `modify` the approved sensitive step fails with `Impact "destroy" exceeds authorized maximum "modify"`.
+- Bedrock planning itself needs `NEXUS_ALEXA_BEDROCK_MODEL=<enabled-model-or-inference-profile-id>` in the gateway process (planner layer only; it never touches the Nexus child env).
+
+Known remaining mismatch (see FRICTION-LOG F-015): the Bedrock planner's `populate_brief` expected-state also asserts `dirty`/`hasEditor`, which the live `desktop_read_text` adapter never returns, so a Bedrock-planned full run currently tops out at 5/6 even though the write lands exactly. Use the deterministic/`live-combined.ts` proof (which asserts `{ value: text }` only) for the 6/6 marker until the planner's expectation schema is reconciled with the live adapter shape.
+
 Expected: Firefox real, Windows real, other substrates simulated/roadmap. The old `--web-app` direct mode must fail.
 
 ## 6. Execute the take
