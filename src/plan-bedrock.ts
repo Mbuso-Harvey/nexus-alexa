@@ -210,10 +210,12 @@ export class BedrockPlanBuilder implements PlanBuilder {
       case "open_sensitive_dialog":
         return { dialog: "open" };
       case "populate_brief":
+        // The live Windows adapter guarantees only the normalized exact text
+        // (desktop_read_text returns value/windowId/method). Asserting dirty/hasEditor
+        // here fails verification by rule even when the write lands exactly —
+        // those keys are planner-side metadata, not live read-back state.
         return {
           value: String(inputs?.text ?? "").replace(/\r\n?/g, "\n").replace(/\n+$/g, ""),
-          dirty: true,
-          hasEditor: true,
         };
       case "enable_billing_alerts":
         return { value: inputs?.enabled === false ? "off" : "on" };
